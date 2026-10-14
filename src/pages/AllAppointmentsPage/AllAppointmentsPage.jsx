@@ -1,6 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './AllAppointmentsPage.css';
-import { fetchMyConsultationAppointments } from '../../utils/myConsultationsAppointments';
+import RescheduleConsultationSheet from '../../components/RescheduleConsultationSheet';
+import { getMyConsultations } from '../../services/usersService';
+import { appointmentsFromConsultationRows } from '../../utils/myConsultationsAppointments';
 import backIcon from '../../images/AllAppointments/back.svg';
 import homeIcon from '../../images/AllAppointments/home.svg';
 import videoIcon from '../../images/AllAppointments/video.svg';
@@ -8,6 +10,9 @@ import attachmentIcon from '../../images/AllAppointments/attachment.svg';
 import prescriptionIcon from '../../images/AllAppointments/prescription.svg';
 import chevronIcon from '../../images/AllAppointments/chevron.svg';
 import cabinIcon from '../../images/AllAppointments/cabin.svg';
+import periodChevronIcon from '../../images/AllAppointments/period-chevron.svg';
+import infoIcon from '../../images/AllAppointments/info.svg';
+import timelineLine from '../../images/AllAppointments/timeline.svg';
 
 const STATUS_TABS = [
   { key: 'scheduled', label: 'Scheduled' },
@@ -22,99 +27,48 @@ const CATEGORY_CHIPS = [
   { key: 'blood', label: 'Blood test' },
 ];
 
+const PERIOD_OPTIONS = ['6 Months', '3 Months', '1 Month'];
+
+const GENERIC_EXPERT_LABELS = new Set([
+  'Doctor Consultation',
+  'Nutrition Consultation',
+  'Ayurveda Consultation',
+  'Clinical Nutritionist',
+  'Ayurvedic Practitioner',
+  'General Physician',
+  'Consultation',
+]);
+
 const SCHEDULED_SAMPLE_APPOINTMENTS = [
   {
     id: 'scheduled-blood-sample',
     status: 'scheduled',
     category: 'blood',
     accent: 'blue',
-    whenLabel: 'Tuesday, 7:30 AM',
-    title: 'Blood Collection',
-    subtitle: 'Complete Blood Count',
-    cabinLabel: 'Cabin 10',
-    showInfo: true,
-  },
-  {
-    id: 'scheduled-nutrition-sample',
-    status: 'scheduled',
-    category: 'nutritionist',
-    accent: 'teal',
-    whenLabel: 'Wednesday, 10:00 AM',
-    title: 'Nutrition Consultation',
-    subtitle: 'Clinical Nutritionist',
-    cabinLabel: 'Cabin 11',
-    showInfo: true,
-  },
-];
-
-const CANCELLED_SAMPLE_APPOINTMENTS = [
-  {
-    id: 'cancelled-blood-sample',
-    status: 'cancelled',
-    category: 'blood',
-    accent: 'blue',
-    cancelReason: 'Cancelled',
     whenLabel: 'Today, 7:30 AM',
     title: 'Blood Collection',
     subtitle: 'Complete Blood Count',
     mode: 'Home Collection',
     modeIcon: 'home',
-    primaryAction: 'Book Again',
-  },
-  {
-    id: 'cancelled-doctor-sample',
-    status: 'cancelled',
-    category: 'doctor',
-    accent: 'teal',
-    cancelReason: 'Missed',
-    whenLabel: 'Today, 10:00 AM',
-    title: 'Doctor Consultation',
-    personName: 'Dr. Priya Nair',
-    personRole: 'General Physician',
-    mode: 'Video Consultation',
-    modeIcon: 'video',
-    primaryAction: 'Book Again',
+    primaryAction: 'Cancel',
+    primaryTone: 'red',
     secondaryAction: 'Reschedule',
+    showInfo: true,
   },
   {
-    id: 'cancelled-program-sample',
-    status: 'cancelled',
-    category: 'nutritionist',
-    accent: 'amber',
-    cancelReason: 'Incomplete',
-    whenLabel: 'Today, 1:00 PM',
-    kind: 'program',
-    title: 'Nutrition Program',
-    subtitle: 'Weekly Nutrition Coaching with Dr. Priya Nair',
-    progressPercent: 25,
-    primaryAction: 'Open Program',
-    secondaryAction: 'Message',
-  },
-];
-
-const COMPLETED_SAMPLE_APPOINTMENTS = [
-  {
-    id: 'completed-blood-sample',
-    status: 'completed',
-    category: 'blood',
-    accent: 'blue',
-    statusBadge: { label: '2 Attachments', icon: 'attachment' },
-    title: 'Blood Collection',
-    subtitle: 'Complete Blood Count',
-    mode: 'Home Collection',
-    modeIcon: 'home',
-  },
-  {
-    id: 'completed-doctor-sample',
-    status: 'completed',
+    id: 'scheduled-doctor-sample',
+    status: 'scheduled',
     category: 'doctor',
     accent: 'teal',
-    statusBadge: { label: 'Prescription Available', icon: 'prescription' },
+    whenLabel: 'Tomorrow, 10:00 AM',
     title: 'Doctor Consultation',
     personName: 'Dr. Priya Nair',
     personRole: 'General Physician',
     mode: 'Video Consultation',
     modeIcon: 'video',
+    primaryAction: 'Join Call',
+    secondaryAction: 'Reschedule',
+    showInfo: true,
   },
 ];
 
@@ -150,29 +104,86 @@ const formatCabinLabel = (cabinId) => {
   return id > 0 ? `Cabin ${id}` : undefined;
 };
 
-const normalizeScheduledAppointment = (item) => {
-  const status = item?.status || 'scheduled';
+const canRescheduleConsultation = (appointment) => {
+  const engagementId = Number(appointment?.engagementId);
+  const expertType = String(appointment?.expertType || appointment?.category || '').trim().toLowerCase();
+  const category = String(appointment?.category || '').trim().toLowerCase();
+  if (!Number.isFinite(engagementId) || engagementId <= 0) {
+    return false;
+  }
+  if (category === 'blood') {
+    return false;
+  }
+  return Boolean(expertType);
+};
+
+const decorateScheduledAppointment = (item) => {
+  const next = { ...item };
+  const status = next.status || 'scheduled';
   if (status !== 'scheduled') {
-    return item;
+    return next;
   }
 
-  const next = { ...item };
-  delete next.primaryAction;
-  delete next.secondaryAction;
-
-  if (next.category === 'doctor') {
+  if (next.category === 'doctor' || next.category === 'nutritionist' || next.category === 'ayurveda') {
     delete next.pendingDetails;
     delete next.pendingDetailsText;
+    const expertId = Number(next.expertId ?? next.expert_id);
+    if (Number.isFinite(expertId) && expertId > 0) {
+      next.expertId = expertId;
+      next.expert_id = expertId;
+    }
+    const expertName = String(next.expertName || '').trim();
+    if (!next.personName && expertName && expertName !== next.title && !GENERIC_EXPERT_LABELS.has(expertName)) {
+      next.personName = expertName;
+    }
+    if (!next.photo && next.expert_photo) {
+      next.photo = next.expert_photo;
+    }
+    const fallbackRole = next.category === 'nutritionist'
+      ? 'Clinical Nutritionist'
+      : next.category === 'ayurveda'
+        ? 'Ayurvedic Practitioner'
+        : 'General Physician';
+    if (next.personRole && GENERIC_EXPERT_LABELS.has(String(next.personRole).trim()) && next.expert_specialization) {
+      next.personRole = next.expert_specialization;
+    } else {
+      next.personRole = next.personRole || next.expert_specialization || fallbackRole;
+    }
+    if (
+      next.personName
+      && next.personRole
+      && String(next.personName).trim().toLowerCase() === String(next.personRole).trim().toLowerCase()
+    ) {
+      next.subtitle = next.subtitle || next.personName;
+      delete next.personName;
+    }
+    if (!next.personName && !next.subtitle) {
+      next.subtitle = fallbackRole;
+    }
+    if (!next.cabinLabel && !next.cabinId && !next.mode) {
+      next.mode = 'Video Consultation';
+      next.modeIcon = 'video';
+    }
+    next.primaryAction = next.primaryAction || 'Join Call';
+    next.primaryTone = next.primaryTone || 'teal';
+    next.secondaryAction = next.secondaryAction || 'Reschedule';
+    next.showInfo = true;
+  }
+
+  if (next.category === 'blood') {
+    if (!next.cabinLabel && !next.cabinId && !next.mode) {
+      next.mode = 'Home Collection';
+      next.modeIcon = 'home';
+    }
+    next.primaryAction = next.primaryAction || 'Cancel';
+    next.primaryTone = next.primaryTone || 'red';
+    next.secondaryAction = next.secondaryAction || 'Reschedule';
+    next.showInfo = true;
   }
 
   if (next.cabinId) {
     next.cabinLabel = formatCabinLabel(next.cabinId);
-    delete next.mode;
-    delete next.modeIcon;
-    return next;
-  }
-
-  if (next.cabinLabel) {
+  } else if (next.cabinLabel) {
     const cabinMatch = String(next.cabinLabel).match(/^Cabin(?:\s+No\.)?\s*(\d+)$/i);
     if (cabinMatch) {
       next.cabinId = Number(cabinMatch[1]);
@@ -180,12 +191,9 @@ const normalizeScheduledAppointment = (item) => {
     } else if (next.cabinLabel === 'Cabin') {
       delete next.cabinLabel;
     }
-    delete next.mode;
-    delete next.modeIcon;
-    return next;
   }
 
-  if (next.category === 'doctor' && next.mode === 'Video Consultation') {
+  if (next.cabinLabel) {
     delete next.mode;
     delete next.modeIcon;
   }
@@ -193,63 +201,67 @@ const normalizeScheduledAppointment = (item) => {
   return next;
 };
 
-const AllAppointmentsPage = ({ onBack, appointments = [] }) => {
+const AllAppointmentsPage = ({ onBack, onOpenAppointment, appointments = [] }) => {
   const [activeStatus, setActiveStatus] = useState('scheduled');
   const [activeCategory, setActiveCategory] = useState('all');
+  const [periodLabel, setPeriodLabel] = useState(PERIOD_OPTIONS[0]);
   const [consultationAppointments, setConsultationAppointments] = useState([]);
   const [isLoadingConsultations, setIsLoadingConsultations] = useState(true);
   const [hasLoadedConsultations, setHasLoadedConsultations] = useState(false);
+  const [rescheduleTarget, setRescheduleTarget] = useState(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const cyclePeriod = () => {
+    setPeriodLabel((current) => {
+      const index = PERIOD_OPTIONS.indexOf(current);
+      return PERIOD_OPTIONS[(index + 1) % PERIOD_OPTIONS.length];
+    });
+  };
 
-    const loadConsultations = async () => {
+  const loadConsultations = useCallback(async ({ quiet = false } = {}) => {
+    if (!quiet) {
       setIsLoadingConsultations(true);
-      try {
-        const items = await fetchMyConsultationAppointments();
-        if (!cancelled) {
-          setConsultationAppointments(items);
-        }
-      } catch (error) {
-        console.error('Failed to load consultation appointments:', error);
-        if (!cancelled) {
-          setConsultationAppointments([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoadingConsultations(false);
-          setHasLoadedConsultations(true);
-        }
+    }
+    try {
+      const response = await getMyConsultations();
+      const rows = Array.isArray(response?.data) ? response.data : [];
+      const items = await appointmentsFromConsultationRows(rows);
+      setConsultationAppointments(items);
+    } catch (error) {
+      console.error('Failed to load consultation appointments:', error);
+      if (!quiet) {
+        setConsultationAppointments([]);
       }
-    };
-
-    void loadConsultations();
-
-    return () => {
-      cancelled = true;
-    };
+    } finally {
+      setIsLoadingConsultations(false);
+      setHasLoadedConsultations(true);
+    }
   }, []);
 
+  useEffect(() => {
+    void loadConsultations();
+  }, [loadConsultations]);
+
+  const openReschedule = (appointment) => {
+    if (!canRescheduleConsultation(appointment)) {
+      return;
+    }
+    setRescheduleTarget(appointment);
+  };
+
   const mergedAppointments = useMemo(() => {
-    const apiAppointments = consultationAppointments.map(normalizeScheduledAppointment);
+    const apiAppointments = consultationAppointments.map(decorateScheduledAppointment);
 
-    if (hasLoadedConsultations) {
-      if (apiAppointments.length > 0) {
-        return apiAppointments;
-      }
-
-      return appointments.map(normalizeScheduledAppointment);
+    if (hasLoadedConsultations && apiAppointments.length > 0) {
+      const seen = new Set(apiAppointments.map((item) => item.id));
+      const extras = appointments
+        .map(decorateScheduledAppointment)
+        .filter((item) => item?.id && !seen.has(item.id));
+      return [...apiAppointments, ...extras];
     }
 
-    let result = appointments.map(normalizeScheduledAppointment);
-    if (!appointments.some((item) => (item.status || 'scheduled') === 'scheduled')) {
+    let result = appointments.map(decorateScheduledAppointment);
+    if (!result.some((item) => (item.status || 'scheduled') === 'scheduled')) {
       result = [...result, ...SCHEDULED_SAMPLE_APPOINTMENTS];
-    }
-    if (!appointments.some((item) => item.status === 'completed')) {
-      result = [...result, ...COMPLETED_SAMPLE_APPOINTMENTS];
-    }
-    if (!appointments.some((item) => item.status === 'cancelled')) {
-      result = [...result, ...CANCELLED_SAMPLE_APPOINTMENTS];
     }
     return result;
   }, [appointments, consultationAppointments, hasLoadedConsultations]);
@@ -262,63 +274,81 @@ const AllAppointmentsPage = ({ onBack, appointments = [] }) => {
     });
   }, [mergedAppointments, activeStatus, activeCategory]);
 
+  const openAppointmentDetails = (appointment) => {
+    if (typeof onOpenAppointment !== 'function' || !appointment) {
+      return;
+    }
+    const expertId = Number(appointment.expertId ?? appointment.expert_id);
+    onOpenAppointment({
+      ...appointment,
+      expertId: Number.isFinite(expertId) && expertId > 0 ? expertId : null,
+      expert_id: Number.isFinite(expertId) && expertId > 0 ? expertId : null,
+      consultationId: appointment.consultationId ?? appointment.consultation_id ?? null,
+      engagementId: appointment.engagementId ?? appointment.engagement_id ?? null,
+      apiDate: appointment.apiDate ?? null,
+      apiSlot: appointment.apiSlot ?? null,
+    });
+  };
+
   const renderScheduledCard = (appointment, accent, kind) => {
-    const detailLabel = appointment.cabinLabel || appointment.locationLabel;
+    const detailLabel = appointment.mode || appointment.cabinLabel || appointment.locationLabel;
+    const detailIcon = appointment.modeIcon || (appointment.cabinLabel ? 'cabin' : null);
+    const actionCount = [appointment.primaryAction, appointment.secondaryAction].filter(Boolean).length;
+    const primaryTone = appointment.primaryTone || accent;
+    const primaryClass = `all-appointments-page__action all-appointments-page__action--${primaryTone}`;
 
     return (
       <>
-        <div className="all-appointments-page__card-main">
-          <div className="all-appointments-page__card-top">
-            {kind === 'program' ? (
-              <div className="all-appointments-page__badges">
-                {appointment.weekLabel ? (
-                  <span className="all-appointments-page__badge all-appointments-page__badge--amber">
-                    {appointment.weekLabel}
-                  </span>
-                ) : null}
-                {appointment.nextSessionLabel ? (
-                  <span className="all-appointments-page__badge all-appointments-page__badge--muted">
-                    {appointment.nextSessionLabel}
-                  </span>
-                ) : null}
-              </div>
-            ) : (
-              <span className={`all-appointments-page__when all-appointments-page__when--${accent}`}>
-                {appointment.whenLabel}
-              </span>
-            )}
-          </div>
-
-          <div className="all-appointments-page__card-copy">
-            <h2 className="all-appointments-page__card-title all-appointments-page__card-title--scheduled">
-              {appointment.title}
-            </h2>
-
-            {appointment.pendingDetails ? (
-              <p className="all-appointments-page__subtitle">
-                {appointment.pendingDetailsText || 'Doctor details will be shared soon.'}
-              </p>
-            ) : appointment.personName ? (
-              <p className="all-appointments-page__person">
-                <span>{appointment.personName}</span>
-                {appointment.personRole ? (
-                  <span className="all-appointments-page__person-role">({appointment.personRole})</span>
-                ) : null}
-              </p>
-            ) : appointment.subtitle ? (
-              <p className="all-appointments-page__subtitle">{appointment.subtitle}</p>
-            ) : null}
-
-            {detailLabel ? (
-              <div className="all-appointments-page__detail-line all-appointments-page__detail-line--scheduled">
-                <span className="all-appointments-page__icon-box all-appointments-page__icon-box--cabin">
-                  <img src={cabinIcon} alt="" />
+        <div className="all-appointments-page__card-top">
+          {kind === 'program' ? (
+            <div className="all-appointments-page__badges">
+              {appointment.weekLabel ? (
+                <span className="all-appointments-page__badge all-appointments-page__badge--amber">
+                  {appointment.weekLabel}
                 </span>
-                <span>{detailLabel}</span>
-              </div>
-            ) : null}
-          </div>
+              ) : null}
+              {appointment.nextSessionLabel ? (
+                <span className="all-appointments-page__badge all-appointments-page__badge--muted">
+                  {appointment.nextSessionLabel}
+                </span>
+              ) : null}
+            </div>
+          ) : (
+            <span className={`all-appointments-page__when all-appointments-page__when--${accent}`}>
+              {appointment.whenLabel}
+            </span>
+          )}
         </div>
+
+        <h2 className="all-appointments-page__card-title all-appointments-page__card-title--scheduled">
+          {appointment.title}
+        </h2>
+
+        {appointment.pendingDetails ? (
+          <p className="all-appointments-page__subtitle">
+            {appointment.pendingDetailsText || 'Doctor details will be shared soon.'}
+          </p>
+        ) : appointment.personName ? (
+          <p className="all-appointments-page__person">
+            <span>{appointment.personName}</span>
+            {appointment.personRole ? (
+              <span className="all-appointments-page__person-role">({appointment.personRole})</span>
+            ) : null}
+          </p>
+        ) : appointment.subtitle ? (
+          <p className={`all-appointments-page__subtitle${kind === 'program' ? ' all-appointments-page__subtitle--program' : ''}`}>
+            {appointment.subtitle}
+          </p>
+        ) : null}
+
+        {detailLabel ? (
+          <div className="all-appointments-page__detail-line all-appointments-page__detail-line--scheduled">
+            <span className={`all-appointments-page__icon-box ${getDetailIconClass(detailIcon)}`}>
+              <img src={getDetailIcon(detailIcon)} alt="" />
+            </span>
+            <span>{detailLabel}</span>
+          </div>
+        ) : null}
 
         {kind === 'program' && typeof appointment.progressPercent === 'number' ? (
           <div className="all-appointments-page__progress">
@@ -333,6 +363,50 @@ const AllAppointmentsPage = ({ onBack, appointments = [] }) => {
               />
             </div>
           </div>
+        ) : null}
+
+        {actionCount > 0 ? (
+          <div className={`all-appointments-page__actions all-appointments-page__actions--scheduled${kind === 'program' ? ' all-appointments-page__actions--program' : ''}${actionCount === 1 ? ' all-appointments-page__actions--single' : ''}`}>
+            {appointment.primaryAction ? (
+              <button
+                className={primaryClass}
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                }}
+              >
+                {appointment.primaryAction}
+              </button>
+            ) : null}
+            {appointment.secondaryAction ? (
+              <button
+                className="all-appointments-page__action all-appointments-page__action--ghost"
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (appointment.secondaryAction === 'Reschedule') {
+                    openReschedule(appointment);
+                  }
+                }}
+              >
+                {appointment.secondaryAction}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {appointment.showInfo ? (
+          <button
+            type="button"
+            className="all-appointments-page__info-btn all-appointments-page__info-btn--scheduled"
+            aria-label="Appointment info"
+            onClick={(event) => {
+              event.stopPropagation();
+              openAppointmentDetails(appointment);
+            }}
+          >
+            <img src={infoIcon} alt="" width="14" height="14" />
+          </button>
         ) : null}
       </>
     );
@@ -403,7 +477,15 @@ const AllAppointmentsPage = ({ onBack, appointments = [] }) => {
             </button>
           ) : null}
           {appointment.secondaryAction ? (
-            <button className="all-appointments-page__action all-appointments-page__action--ghost" type="button">
+            <button
+              className="all-appointments-page__action all-appointments-page__action--ghost"
+              type="button"
+              onClick={() => {
+                if (appointment.secondaryAction === 'Reschedule') {
+                  openReschedule(appointment);
+                }
+              }}
+            >
               {appointment.secondaryAction}
             </button>
           ) : null}
@@ -474,17 +556,29 @@ const AllAppointmentsPage = ({ onBack, appointments = [] }) => {
             aria-label="Go back"
             type="button"
           >
-            <img src={backIcon} alt="" className="all-appointments-page__back-img" />
+            <img src={backIcon} alt="" width="24" height="24" />
           </button>
           <h1 className="all-appointments-page__title">All Appointments</h1>
         </div>
-        <button className="all-appointments-page__range-btn" type="button" aria-label="Filter by last 6 months">
-          <span>6 Months</span>
-          <span className="all-appointments-page__range-caret" aria-hidden="true" />
+        <button
+          className="all-appointments-page__period-btn"
+          type="button"
+          aria-label={`Appointment period: ${periodLabel}`}
+          onClick={cyclePeriod}
+        >
+          <span>{periodLabel}</span>
+          <img
+            className="all-appointments-page__period-chevron"
+            src={periodChevronIcon}
+            alt=""
+            width="4.5"
+            height="7.5"
+          />
         </button>
       </div>
 
-      <div className="all-appointments-page__filters">
+      <div className="all-appointments-page__body">
+        <div className="all-appointments-page__filters">
         <div className="all-appointments-page__status-wrap">
           <div className="all-appointments-page__tabs" role="tablist" aria-label="Appointment status tabs">
             {STATUS_TABS.map((tab) => {
@@ -529,6 +623,11 @@ const AllAppointmentsPage = ({ onBack, appointments = [] }) => {
       </div>
 
       <div className={`all-appointments-page__list${visibleAppointments.length === 0 ? ' is-empty' : ''}`}>
+        {visibleAppointments.length > 0 ? (
+          <span className="all-appointments-page__timeline" aria-hidden="true">
+            <img src={timelineLine} alt="" width="598.003" height="21" />
+          </span>
+        ) : null}
         {isLoadingConsultations ? (
           <div className="all-appointments-page__empty" role="status">
             <p className="all-appointments-page__empty-title">Loading appointments...</p>
@@ -564,13 +663,36 @@ const AllAppointmentsPage = ({ onBack, appointments = [] }) => {
                 <span className={`all-appointments-page__dot all-appointments-page__dot--${accent}`} />
               </div>
 
-              <article className={`all-appointments-page__card${isCompleted ? ' all-appointments-page__card--completed' : ''}${isCancelled ? ' all-appointments-page__card--cancelled' : ''}${status === 'scheduled' ? ' all-appointments-page__card--scheduled' : ''}`}>
+              <article
+                className={`all-appointments-page__card${isCompleted ? ' all-appointments-page__card--completed' : ''}${isCancelled ? ' all-appointments-page__card--cancelled' : ''}${status === 'scheduled' ? ' all-appointments-page__card--scheduled' : ''}${status === 'scheduled' ? ' is-clickable' : ''}`}
+                onClick={status === 'scheduled' ? () => openAppointmentDetails(appointment) : undefined}
+                onKeyDown={status === 'scheduled' ? (event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    openAppointmentDetails(appointment);
+                  }
+                } : undefined}
+                role={status === 'scheduled' ? 'button' : undefined}
+                tabIndex={status === 'scheduled' ? 0 : undefined}
+              >
                 {cardContent}
               </article>
             </div>
           );
         }) : null}
       </div>
+      </div>
+
+      {rescheduleTarget ? (
+        <RescheduleConsultationSheet
+          appointment={rescheduleTarget}
+          onClose={() => setRescheduleTarget(null)}
+          onSuccess={async () => {
+            setRescheduleTarget(null);
+            await loadConsultations({ quiet: true });
+          }}
+        />
+      ) : null}
     </div>
   );
 };

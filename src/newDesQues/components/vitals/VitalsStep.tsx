@@ -1,15 +1,13 @@
 import { useMemo, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import type { QuestionnaireQuestion } from '../../api/questionnaire'
-import backIcon from '../../assets/family-history/back-icon.svg'
-import nextChevronIcon from '../../assets/family-history/next-chevron.svg'
 import { McqProgressBar } from '../mcq/McqProgressBar'
 import {
-  ANTHRO_FOOTER_INNER_CLASS,
   MCQ_HEADER_CLASS,
   MCQ_SHELL_CLASS,
   MCQ_SHELL_SCROLL_CLASS,
 } from '../mcq/mcqLayout'
+import { QuestionnaireFooter } from '../mcq/QuestionnaireFooter'
 import {
   clampBloodPressure,
   formatVitalsTwoDigits,
@@ -90,14 +88,9 @@ export function VitalsStep({
       />
 
       <header className={`relative z-[1] ${MCQ_HEADER_CLASS}`}>
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <button type="button" onClick={onBack} className="relative size-6 shrink-0" aria-label="Back">
-            <img src={backIcon} alt="" className="absolute inset-0 size-full" aria-hidden />
-          </button>
-          <h1 className="shrink-0 whitespace-nowrap text-lg font-normal tracking-tight text-white">
-            {title}
-          </h1>
-        </div>
+        <h1 className="shrink-0 whitespace-nowrap text-lg font-normal tracking-tight text-white">
+          {title}
+        </h1>
       </header>
 
       <div className="relative z-[1] flex shrink-0 flex-col gap-3 px-[16px] py-2">
@@ -135,20 +128,13 @@ export function VitalsStep({
         </div>
       </div>
 
-      <footer className="fixed inset-x-0 bottom-0 z-10 bg-white/5 backdrop-blur-xl">
-        <div className={ANTHRO_FOOTER_INNER_CLASS}>
-          <div className="min-w-0 flex-1" />
-          <button
-            type="button"
-            onClick={() => finish({ systolic, diastolic })}
-            className="flex size-12 shrink-0 items-center justify-center rounded-full border border-[#969696] shadow-[0_8px_32px_0_rgba(144,223,158,0.5)]"
-            style={{ backgroundImage: VITALS_NEXT_BUTTON_GRADIENT }}
-            aria-label="Continue"
-          >
-            <img src={nextChevronIcon} alt="" className="size-6" aria-hidden />
-          </button>
-        </div>
-      </footer>
+      <QuestionnaireFooter
+        onBack={onBack}
+        onNext={() => finish({ systolic, diastolic })}
+        nextAriaLabel="Continue"
+        buttonGradient={VITALS_NEXT_BUTTON_GRADIENT}
+        buttonShadowClass="shadow-[0_8px_32px_0_rgba(144,223,158,0.5)]"
+      />
     </div>
   )
 }

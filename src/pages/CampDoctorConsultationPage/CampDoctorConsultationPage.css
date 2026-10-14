@@ -3,7 +3,136 @@
   left: 50%;
   right: auto;
   top: auto;
-  bottom: calc(62px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px) - 1px);
+  width: min(100vw, 480px);
+  height: auto;
+  min-height: 0 !important;
+  max-height: none;
+  transform: translateX(-50%);
+  z-index: 980;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 17px 24px 16px;
+  margin: 0;
+  box-sizing: border-box;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 24px 24px 0 0;
+  background:
+    linear-gradient(141.24deg, rgba(47, 210, 176, 0.2) 0%, rgba(36, 137, 246, 0.14) 99.99%),
+    rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.camp-doctor-reminder__when {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  min-width: 0;
+  padding-right: 16px;
+  align-self: stretch;
+}
+
+.camp-doctor-reminder__kicker {
+  margin: 0;
+  color: #5ffa7b;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 400;
+  font-optical-sizing: none;
+  font-variation-settings: 'opsz' 9;
+  line-height: 16.5px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.camp-doctor-reminder__clock {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 400;
+  font-optical-sizing: none;
+  font-variation-settings: 'opsz' 9;
+  white-space: nowrap;
+}
+
+.camp-doctor-reminder__clock strong {
+  font-weight: 400;
+  font-size: 26px;
+  line-height: 30px;
+  letter-spacing: -0.75px;
+}
+
+.camp-doctor-reminder__clock span {
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.3px;
+}
+
+.camp-doctor-reminder__rule {
+  align-self: center;
+  width: 0;
+  height: 48px;
+  flex-shrink: 0;
+  border-left: 1px dashed rgba(71, 85, 105, 0.7);
+}
+
+.camp-doctor-reminder__copy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  padding-left: 12px;
+}
+
+.camp-doctor-reminder__title {
+  margin: 0;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  font-optical-sizing: none;
+  font-variation-settings: 'opsz' 14;
+  line-height: 20px;
+  letter-spacing: -0.5px;
+  white-space: nowrap;
+}
+
+.camp-doctor-reminder__chevron {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: flex-end;
+  padding-left: 8px;
+}
+
+.camp-doctor-reminder:focus-visible {
+  outline: 2px solid #90df9e;
+  outline-offset: 2px;
+}
+
+.camp-doctor-consult {
+  position: fixed;
+  left: 50%;
+  right: auto;
+  top: auto;
+  /* Sit flush on NavBar2 bar (min-height 56px + safe area); 1px overlap kills subpixel gap */
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px) - 1px);
   width: min(100vw, 480px);
   height: auto;
   min-height: 0 !important;
@@ -13,136 +142,6 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 17px 24px 16px;
-  margin: 0;
-  box-sizing: border-box;
-  border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 24px 24px 0 0;
-  background:
-    linear-gradient(149.14deg, rgba(124, 58, 237, 0.14) 0%, rgba(47, 210, 176, 0.2) 99.99%),
-    rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
-}
-
-.camp-doctor-reminder__inner {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
-}
-
-.camp-doctor-reminder__left {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.camp-doctor-reminder__icon {
-  display: flex;
-  flex-shrink: 0;
-  padding: 7px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  overflow: hidden;
-}
-
-.camp-doctor-reminder__icon-box {
-  display: block;
-  width: 15px;
-  height: 15px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.camp-doctor-reminder__icon-box img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.camp-doctor-reminder__copy {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  min-width: 0;
-}
-
-.camp-doctor-reminder__title {
-  margin: 0;
-  color: #fff;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: normal;
-}
-
-.camp-doctor-reminder__meta {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.camp-doctor-reminder__time {
-  margin: 0;
-  color: #fff;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 15px;
-  white-space: nowrap;
-}
-
-.camp-doctor-reminder__rule {
-  width: 1px;
-  height: 11px;
-  flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.5);
-}
-
-.camp-doctor-reminder__date {
-  margin: 0;
-  color: #90df9e;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: normal;
-  white-space: nowrap;
-}
-
-.camp-doctor-reminder__cta {
-  flex-shrink: 0;
-  border: none;
-  background: none;
-  padding: 0;
-  color: #9a9a9a;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 15px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.camp-doctor-consult {
-  position: fixed;
-  left: 50%;
-  right: auto;
-  top: 50%;
-  bottom: auto;
-  width: min(calc(100vw - 40px), 320px);
-  height: auto;
-  min-height: 0 !important;
-  max-height: none;
-  transform: translate(-50%, -50%);
-  z-index: 980;
-  display: block;
   padding: 0;
   margin: 0;
   pointer-events: none;
@@ -160,76 +159,51 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: flex-start;
-  gap: 16px;
-  padding: 17px;
-  padding-right: 40px;
-  border-radius: 16px;
-  border: 1px solid rgba(154, 154, 154, 0.35);
+  padding: 17px 24px 16px;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 24px 24px 0 0;
   background:
-    linear-gradient(134.42deg, rgba(124, 58, 237, 0.105) 0%, rgba(47, 210, 176, 0.15) 99.99%),
-    rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(35px);
-  -webkit-backdrop-filter: blur(35px);
-  box-shadow: 0 0 30px 0 rgba(85, 85, 85, 0.5);
+    linear-gradient(141.24deg, rgba(47, 210, 176, 0.2) 0%, rgba(36, 137, 246, 0.2) 99.99%),
+    rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  overflow: hidden;
 }
 
-.camp-doctor-consult__close {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 2;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-}
-
-.camp-doctor-consult__close-img {
-  display: block;
-  width: 28px;
-  height: 28px;
+.camp-doctor-consult__row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
 }
 
 .camp-doctor-consult__copy {
   display: flex;
-  width: 100%;
+  flex: 1 1 auto;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
-}
-
-.camp-doctor-consult__headline {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 8px;
-}
-
-.camp-doctor-consult__icon {
-  display: flex;
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.camp-doctor-consult__icon-img {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.camp-doctor-consult__titles {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  gap: 4px;
   min-width: 0;
+}
+
+.camp-doctor-consult__kicker {
+  margin: 0;
+  color: #5ffa7b;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 400;
+  font-optical-sizing: none;
+  font-variation-settings: 'opsz' 9;
+  line-height: 16.5px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .camp-doctor-consult__title {
@@ -238,46 +212,26 @@
   font-family: 'DM Sans', sans-serif;
   font-size: 16px;
   font-style: normal;
-  font-weight: 700;
-  line-height: 20px;
-}
-
-.camp-doctor-consult__kicker {
-  margin: 0;
-  color: #90df9e;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 11px;
-  font-style: normal;
-  font-weight: 400;
-  line-height: 20px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
-
-.camp-doctor-consult__lede {
-  margin: 0;
-  width: 100%;
-  color: #9a9a9a;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 400;
-  line-height: 16px;
-  letter-spacing: 0.35px;
+  font-weight: 600;
+  font-optical-sizing: none;
+  font-variation-settings: 'opsz' 14;
+  line-height: 24px;
+  letter-spacing: -0.5px;
+  white-space: nowrap;
 }
 
 .camp-doctor-consult__error {
-  margin: 8px 0 0;
+  margin: 0;
   width: 100%;
   color: #ffb4ab;
   font-family: 'DM Sans', sans-serif;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 11px;
+  line-height: 14px;
 }
 
 .camp-doctor-consult__cta {
   display: flex;
-  width: 100%;
+  flex-shrink: 0;
   height: 40px;
   padding: 10px 24px;
   justify-content: center;
@@ -294,6 +248,7 @@
   font-weight: 600;
   line-height: normal;
   letter-spacing: 0.3px;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -305,30 +260,6 @@
 .camp-doctor-consult__cta:disabled {
   opacity: 0.7;
   cursor: wait;
-}
-
-.camp-doctor-consult__opt-out {
-  display: block;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.8);
-  text-align: center;
-  font-family: Lato, sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: normal;
-  text-decoration: underline;
-  cursor: pointer;
-  opacity: 0.8;
-  transition: opacity 0.15s ease;
-}
-
-.camp-doctor-consult__opt-out:hover,
-.camp-doctor-consult__opt-out:focus-visible {
-  opacity: 1;
 }
 
 .camp-doctor-schedule {

@@ -28,6 +28,18 @@ export function isOtherOption(option: QuestionnaireOption): boolean {
   )
 }
 
+/** When Other is selected, keep every other choice in place and render Other last. */
+export function orderOptionsWithSelectedOtherLast(
+  options: QuestionnaireOption[],
+  selectedValues: string[],
+): QuestionnaireOption[] {
+  if (!selectedIncludesOther(selectedValues, options)) return options
+  return [
+    ...options.filter((option) => !isOtherOption(option)),
+    ...options.filter((option) => isOtherOption(option)),
+  ]
+}
+
 export function questionHasOtherOption(question: QuestionnaireQuestion): boolean {
   const options = Array.isArray(question.options) ? question.options : []
   return options.some(isOtherOption)

@@ -10,7 +10,6 @@ import {
   parseOnlineConsultationSchedule,
 } from '../../utils/campDoctorOfflineSchedule';
 import { ONLINE_CONSULTATION_SLOTS_ENABLED } from './campDoctorConsultationConfig';
-import appointmentIcon from '../../images/home-book-appointment.svg';
 import closeIcon from '../../images/camp-doctor-close.svg';
 import calendarIcon from '../../images/camp-doctor-calendar.svg';
 import clockIcon from '../../images/camp-doctor-clock.svg';
@@ -199,7 +198,7 @@ const getApiDate = (date) => {
   return `${year}-${month}-${day}`;
 };
 
-const buildCampDoctorAppointment = (date, slotLabel, cabin, slotDurationMinutes = 15, expertType = 'doctor') => {
+const buildCampDoctorAppointment = (date, slotLabel, cabin, slotDurationMinutes = 15, expertType = 'doctor', consultationMode = 'online') => {
   const copy = resolveExpertPopupCopy(expertType);
   const start = toAppointmentStart(date, slotLabel);
   const startsAt = start.getTime();
@@ -217,6 +216,7 @@ const buildCampDoctorAppointment = (date, slotLabel, cabin, slotDurationMinutes 
     startsAt,
     endsAt: startsAt + durationMs,
     title: copy.appointmentTitle,
+    consultationMode,
     cabinKey: cabin?.key || null,
     cabinLabel: cabin?.label || null,
     apiDate: date?.apiDate || null,
@@ -259,7 +259,7 @@ const resolveExpertPopupCopy = (expertType) => {
   const normalized = String(expertType || 'doctor').toLowerCase();
   if (normalized === 'nutritionist') {
     return {
-      title: 'Book Your 1:1 Nutritionist',
+      title: 'Nutritionist Consultation',
       appointmentTitle: 'Nutritionist Consultation',
       category: 'nutritionist',
       lede: 'Tailored nutrition, designed around your body and lifestyle',
@@ -267,7 +267,7 @@ const resolveExpertPopupCopy = (expertType) => {
     };
   }
   return {
-    title: 'Book Your 1:1 Doctor',
+    title: 'Doctor Consultation',
     appointmentTitle: 'Doctor Consultation',
     category: 'doctor',
     lede: 'Expert healthcare, personalized to your health conditions and lifestyle',
@@ -281,9 +281,9 @@ const CampDoctorConsultationPage = ({
   consultationMode,
   expertType = 'doctor',
   onAppointmentBooked,
-  onViewAppointment,
-  onClose,
-  onOptOut,
+  onViewAppointment: _onViewAppointment,
+  onClose: _onClose,
+  onOptOut: _onOptOut,
 }) => {
   const fallbackDates = useMemo(() => buildUpcomingDates(), []);
   const normalizedExpertType = String(expertType || 'doctor').toLowerCase();
@@ -428,7 +428,6 @@ const CampDoctorConsultationPage = ({
       onAppointmentBooked?.(bookedAppointment);
     }
     closeSchedule();
-    onViewAppointment?.();
   };
 
   const buildLocalAppointment = () => buildCampDoctorAppointment(
@@ -437,6 +436,7 @@ const CampDoctorConsultationPage = ({
     selectedCabin,
     selectedCabin?.slotDuration || effectiveSlotDuration,
     normalizedExpertType,
+    isOnlineMode ? 'online' : 'offline',
   );
 
   const openConsentAfterBooking = () => {
@@ -579,54 +579,31 @@ const CampDoctorConsultationPage = ({
   return (
     <>
       {!scheduleStep && !isConsentOpen ? (
-        <div className="camp-doctor-consult" role="dialog" aria-label="Camp doctor consultation">
+        <div
+          className="camp-doctor-consult"
+          role="dialog"
+          aria-label={`Complimentary ${expertCopy.title}`}
+        >
           <section className="camp-doctor-consult__card">
-            <button
-              type="button"
-              className="camp-doctor-consult__close"
-              aria-label="Close"
-              onClick={() => {
-                onClose?.();
-              }}
-            >
-              <img src={closeIcon} alt="" className="camp-doctor-consult__close-img" />
-            </button>
-            <div className="camp-doctor-consult__copy">
-              <div className="camp-doctor-consult__headline">
-                <span className="camp-doctor-consult__icon" aria-hidden="true">
-                  <img src={appointmentIcon} alt="" className="camp-doctor-consult__icon-img" />
-                </span>
-                <div className="camp-doctor-consult__titles">
-                  <h2 className="camp-doctor-consult__title">{expertCopy.title}</h2>
-                  <p className="camp-doctor-consult__kicker">Complimentary Consultation</p>
-                </div>
+            <div className="camp-doctor-consult__row">
+              <div className="camp-doctor-consult__copy">
+                <p className="camp-doctor-consult__kicker">Complimentary</p>
+                <h2 className="camp-doctor-consult__title">{expertCopy.title}</h2>
+                {scheduleError ? (
+                  <p className="camp-doctor-consult__error" role="alert">{scheduleError}</p>
+                ) : null}
               </div>
-              <p className="camp-doctor-consult__lede">
-                {expertCopy.lede}
-              </p>
-              {scheduleError ? (
-                <p className="camp-doctor-consult__error" role="alert">{scheduleError}</p>
-              ) : null}
+              <button
+                type="button"
+                className="camp-doctor-consult__cta"
+                disabled={isLoadingSchedule}
+                onClick={() => {
+                  void handleBookNow();
+                }}
+              >
+                {isLoadingSchedule ? 'Loading...' : 'Book Now'}
+              </button>
             </div>
-            <button
-              type="button"
-              className="camp-doctor-consult__cta"
-              disabled={isLoadingSchedule}
-              onClick={() => {
-                void handleBookNow();
-              }}
-            >
-              {isLoadingSchedule ? 'Loading...' : 'Book Now'}
-            </button>
-            <button
-              type="button"
-              className="camp-doctor-consult__opt-out"
-              onClick={() => {
-                onOptOut?.();
-              }}
-            >
-              {expertCopy.optOutLabel}
-            </button>
           </section>
         </div>
       ) : null}

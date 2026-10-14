@@ -3,6 +3,7 @@ import Typography from '../../components/Typography';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import Logo from '../../components/Logo';
+import AuthConsentCheckbox from '../../components/AuthConsentCheckbox';
 import metfluxLogo from '../../images/metflux_logo.svg';
 
 const MaleIcon = ({ active }) => (
@@ -62,6 +63,9 @@ const validateSignupForm = (data) => {
   if (!data.gender) {
     errors.gender = FIELD_REQUIRED;
   }
+  if (!data.consentGranted) {
+    errors.consent = FIELD_REQUIRED;
+  }
   return errors;
 };
 
@@ -90,6 +94,7 @@ const SignupPage = ({ onSuccess, onLogin }) => {
     city: '',
     age: '',
     gender: '',
+    consentGranted: false,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -272,7 +277,16 @@ const SignupPage = ({ onSuccess, onLogin }) => {
             ) : null}
           </div>
 
-          <div className="pt-3">
+          <AuthConsentCheckbox
+            checked={formData.consentGranted}
+            error={fieldErrors.consent}
+            onChange={(consentGranted) => {
+              setFormData((prev) => ({ ...prev, consentGranted }));
+              clearFieldError(setFieldErrors, 'consent');
+            }}
+          />
+
+          <div>
             <Button onClick={handleSendOTP} loading={loading}>
               Continue
             </Button>

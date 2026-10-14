@@ -5,11 +5,13 @@ import { fetchLatestAssessmentReport } from '../../../services/reportService';
 import { buildBloodParametersGroupsForAssessment } from '../../../utils/assessmentBloodMarkerSupplements';
 import {
   normalizeBloodParametersReportPayload,
+  pickBloodParameterGroupName,
   resolveBloodParameterNumericValue,
 } from '../../../utils/bloodParametersReportNormalize';
 import ObesityIcon from '../../../images/Obesity-RA.svg';
 import { formatOrdinal } from '../../../utils/formatOrdinal';
 import { orderHomeBloodMarkersByHierarchy } from '../../../utils/homeBloodMarkerOrder';
+import { classifyReportGroupName, isCancerMarkerTest } from '../../../utils/reportScreenMarkers';
 import ThyroidHealthIcon from '../../../images/Thyroid-RA.svg';
 import NAFLDIcon from '../../../images/NAFLD-RA.svg';
 import Type2Icon from '../../../images/Type2-RA.svg';
@@ -254,10 +256,16 @@ const buildBloodMarkersFromGroups = (groups) => {
   const rows = [];
 
   (Array.isArray(groups) ? groups : []).forEach((group, groupIndex) => {
+    if (classifyReportGroupName(pickBloodParameterGroupName(group) || group?.group_name)) {
+      return;
+    }
     const disease = toDiseaseName(group?.group_name);
     const tests = Array.isArray(group?.tests) ? group.tests : [];
 
     tests.forEach((test, testIndex) => {
+      if (isCancerMarkerTest(test)) {
+        return;
+      }
       const n = test && typeof test === 'object' ? test : {};
       const resolvedNumeric = resolveBloodParameterNumericValue(n, test);
       if (resolvedNumeric === undefined || resolvedNumeric === null) {
@@ -310,8 +318,17 @@ export const buildHomeBloodMarkersFromBloodParametersResponse = (response, asses
 const STACK_FRONT_X_PX = -14;
 const STACK_FRONT_Y_PX = 0;
 
+/** Same bands as Disease Detail / Disease Risk Analysis (0–25 / 26–50 / 51–75 / 76–100). */
+const getRiskScoreDialColor = (score) => {
+  if (score <= 25) return '#90DF9E';
+  if (score <= 50) return '#DAC15A';
+  if (score <= 75) return '#EE8B48';
+  return '#E95D5C';
+};
+
 const GaugeDial = React.memo(function GaugeDial({ score, scoreDisplay }) {
-  const safeScore = Math.max(0, Math.min(100, score ?? 0));
+  const safeScore = Math.max(0, Math.min(100, Number(score) || 0));
+  const dialColor = getRiskScoreDialColor(safeScore);
   const pathD = 'M4 40 A36 36 0 0 1 76 40';
   const approxLength = 113.1;
   const dashOffset = approxLength * (1 - safeScore / 100);
@@ -328,11 +345,11 @@ const GaugeDial = React.memo(function GaugeDial({ score, scoreDisplay }) {
         </defs>
       </svg>
       <svg className="risk-analysis-wins__dial" width="80" height="44" viewBox="0 0 80 44" fill="none" aria-hidden="true">
-        <path d={pathD} className="risk-analysis-wins__dial-track" />
+        <path d={pathD} className="risk-analysis-wins__dial-track" style={{ stroke: dialColor, strokeOpacity: 0.2 }} />
         <path
           d={pathD}
           className="risk-analysis-wins__dial-progress"
-          style={{ strokeDasharray: approxLength, strokeDashoffset: dashOffset }}
+          style={{ stroke: dialColor, strokeDasharray: approxLength, strokeDashoffset: dashOffset }}
         />
       </svg>
       <div className="risk-analysis-wins__dial-score">

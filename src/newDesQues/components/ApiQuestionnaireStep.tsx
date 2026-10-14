@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import backIcon from '../assets/family-history/back-icon.svg'
-import nextChevronIcon from '../assets/family-history/next-chevron.svg'
+import { QuestionnaireFooter } from './mcq/QuestionnaireFooter'
 import tickCircleIcon from '../assets/family-history/tick-circle-outline.svg'
 import {
   buildQuestionnaireResponses,
@@ -17,6 +16,7 @@ import {
   filterOutInlinedOtherQuestions,
   findOtherFollowUpForParent,
   isOtherOption,
+  orderOptionsWithSelectedOtherLast,
   selectedIncludesOther,
 } from '../lib/apiOtherFollowUps'
 import {
@@ -71,13 +71,11 @@ import { NutritionApiWaterIntakeQuestion } from './nutrition-log/NutritionApiWat
 import { NutritionDietTypeQuestion } from './nutrition-log/NutritionDietTypeQuestion'
 import { NUTRITION_NEXT_BUTTON_GRADIENT, NUTRITION_PILL_GRADIENT } from './nutrition-log/nutritionLogConfig'
 import {
-  formatNextQuestionPreview,
   MCQ_HEADER_CLASS,
   MCQ_PILL_BORDER_IDLE,
   MCQ_PILL_BORDER_SELECTED,
   MCQ_PILL_CHIP_CLASS,
   MCQ_SHELL_CLASS,
-  MCQ_SHELL_FOOTER_INNER_CLASS,
   MCQ_SHELL_SCROLL_CLASS,
 } from './mcq/mcqLayout'
 import { McqInfoOverlay } from './mcq/McqInfoOverlay'
@@ -141,13 +139,6 @@ function progressPercent(index: number, total: number, answered: boolean): numbe
   if (total <= 0) return 0
   const completed = index + (answered ? 1 : 0)
   return Math.round((completed / total) * 100)
-}
-
-function splitPreview(text: string): { line1: string; line2: string } {
-  const words = text.trim().split(/\s+/).filter(Boolean)
-  if (words.length <= 4) return { line1: text.trim(), line2: '' }
-  const mid = Math.ceil(words.length / 2)
-  return { line1: words.slice(0, mid).join(' '), line2: words.slice(mid).join(' ') }
 }
 
 function toggleMulti(current: string[], value: string): string[] {
@@ -271,10 +262,7 @@ export function ApiQuestionnaireStep({
     : false
   const percent = progressPercent(visibleIndex, total, answered)
   const isLast = visibleIndex >= total - 1
-  const nextPreview = useMemo(
-    () => splitPreview(nextQuestion?.question_text || ''),
-    [nextQuestion?.question_text],
-  )
+  const nextQuestionPreview = String(nextQuestion?.question_text || '').replace(/\s+/g, ' ').trim()
   const infoItems = useMemo(
     () => parseHelpTextToInfoItems(question?.help_text),
     [question?.help_text],
@@ -492,6 +480,7 @@ export function ApiQuestionnaireStep({
     : typeof answer === 'string' || typeof answer === 'number'
       ? [String(answer)]
       : []
+  const orderedOptions = orderOptionsWithSelectedOtherLast(options, selectedValues)
 
   const applyChoiceSelection = (nextSelected: string[]) => {
     setSaveError('')
@@ -513,18 +502,7 @@ export function ApiQuestionnaireStep({
   return (
     <div className={MCQ_SHELL_CLASS}>
       <header className={MCQ_HEADER_CLASS}>
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <button
-            type="button"
-            onClick={handleBack}
-            disabled={isSaving}
-            className="relative size-6 shrink-0 disabled:opacity-50"
-            aria-label="Back"
-          >
-            <img src={backIcon} alt="" className="absolute inset-0 size-full" aria-hidden />
-          </button>
-          <h1 className="shrink-0 whitespace-nowrap text-[19px] tracking-[0.095px] text-white">{title}</h1>
-        </div>
+        <h1 className="shrink-0 whitespace-nowrap text-[19px] tracking-[0.095px] text-white">{title}</h1>
       </header>
 
       <div className="flex shrink-0 flex-col gap-2 px-[16px] py-1">
@@ -549,7 +527,7 @@ export function ApiQuestionnaireStep({
               questionLabel={questionLabel}
               questionText={question.question_text}
               questionSubText={questionSubText}
-              options={options}
+              options={orderedOptions}
               selectedValue={selectedValues[0] ?? null}
               disabled={Boolean(question.is_read_only) || isSaving}
               onInfoClick={openInfo}
@@ -566,7 +544,7 @@ export function ApiQuestionnaireStep({
               questionLabel={questionLabel}
               questionText={question.question_text}
               questionSubText={questionSubText}
-              options={options}
+              options={orderedOptions}
               selectedValue={selectedValues[0] ?? null}
               onInfoClick={openInfo}
               onSelect={(value) => {
@@ -582,7 +560,7 @@ export function ApiQuestionnaireStep({
               questionLabel={questionLabel}
               questionText={question.question_text}
               questionSubText={questionSubText}
-              options={options}
+              options={orderedOptions}
               selectedValue={selectedValues[0] ?? null}
               onInfoClick={openInfo}
               onSelect={(value) => {
@@ -598,7 +576,7 @@ export function ApiQuestionnaireStep({
               questionLabel={questionLabel}
               questionText={question.question_text}
               questionSubText={questionSubText}
-              options={options}
+              options={orderedOptions}
               selectedValue={selectedValues[0] ?? null}
               onInfoClick={openInfo}
               onSelect={(value) => {
@@ -614,7 +592,7 @@ export function ApiQuestionnaireStep({
               questionLabel={questionLabel}
               questionText={question.question_text}
               questionSubText={questionSubText}
-              options={options}
+              options={orderedOptions}
               selectedValue={selectedValues[0] ?? null}
               onInfoClick={openInfo}
               onSelect={(value) => {
@@ -630,7 +608,7 @@ export function ApiQuestionnaireStep({
               questionLabel={questionLabel}
               questionText={question.question_text}
               questionSubText={questionSubText}
-              options={options}
+              options={orderedOptions}
               selectedValue={selectedValues[0] ?? null}
               onInfoClick={openInfo}
               onSelect={(value) => {
@@ -646,7 +624,7 @@ export function ApiQuestionnaireStep({
               questionLabel={questionLabel}
               questionText={question.question_text}
               questionSubText={questionSubText}
-              options={options}
+              options={orderedOptions}
               selectedValue={selectedValues[0] ?? null}
               onInfoClick={openInfo}
               onSelect={(value) => {
@@ -662,7 +640,7 @@ export function ApiQuestionnaireStep({
               questionLabel={questionLabel}
               questionText={question.question_text}
               questionSubText={questionSubText}
-              options={options}
+              options={orderedOptions}
               selectedValue={selectedValues[0] ?? null}
               onInfoClick={openInfo}
               onSelect={(value) => {
@@ -678,7 +656,7 @@ export function ApiQuestionnaireStep({
               questionLabel={questionLabel}
               questionText={question.question_text}
               questionSubText={questionSubText}
-              options={options}
+              options={orderedOptions}
               selectedValue={selectedValues[0] ?? null}
               onInfoClick={openInfo}
               onSelect={(value) => {
@@ -694,7 +672,7 @@ export function ApiQuestionnaireStep({
               questionLabel={questionLabel}
               questionText={question.question_text}
               questionSubText={questionSubText}
-              options={options}
+              options={orderedOptions}
               selectedValues={selectedValues}
               onInfoClick={openInfo}
               onToggle={(value) => {
@@ -718,7 +696,7 @@ export function ApiQuestionnaireStep({
               questionLabel={questionLabel}
               questionText={question.question_text}
               questionSubText={questionSubText}
-              options={options}
+              options={orderedOptions}
               selectedValue={selectedValues[0] ?? null}
               onInfoClick={openInfo}
               onSelect={(value) => {
@@ -734,7 +712,7 @@ export function ApiQuestionnaireStep({
               questionLabel={questionLabel}
               questionText={question.question_text}
               questionSubText={questionSubText}
-              options={options}
+              options={orderedOptions}
               selectedValue={selectedValues[0] ?? null}
               disabled={Boolean(question.is_read_only) || isSaving}
               onInfoClick={openInfo}
@@ -751,7 +729,7 @@ export function ApiQuestionnaireStep({
               questionLabel={questionLabel}
               questionText={question.question_text}
               questionSubText={questionSubText}
-              options={displayedOptions}
+              options={orderedOptions}
               selectedValues={selectedValues}
               onInfoClick={openInfo}
               reserveTickSpaceForSelectedLabels={useCoffeeTeaTypeLayout}
@@ -767,7 +745,7 @@ export function ApiQuestionnaireStep({
               questionText={question.question_text}
               questionSubText={questionSubText}
               meterId={nutritionMeterIdForQuestion(question)}
-              options={options}
+              options={orderedOptions}
               selectedValue={selectedValues[0] ?? null}
               variant="breakfast"
               onInfoClick={openInfo}
@@ -785,7 +763,7 @@ export function ApiQuestionnaireStep({
               questionText={question.question_text}
               questionSubText={questionSubText}
               meterId={nutritionMeterIdForQuestion(question)}
-              options={options}
+              options={orderedOptions}
               selectedValue={selectedValues[0] ?? null}
               variant="illness"
               onInfoClick={openInfo}
@@ -802,7 +780,7 @@ export function ApiQuestionnaireStep({
               questionLabel={questionLabel}
               questionText={question.question_text}
               questionSubText={questionSubText}
-              options={options}
+              options={orderedOptions}
               selectedValue={selectedValues[0] ?? null}
               onInfoClick={openInfo}
               onSelect={(value) => {
@@ -819,7 +797,7 @@ export function ApiQuestionnaireStep({
               questionText={question.question_text}
               questionSubText={questionSubText}
               meterId={nutritionMeterIdForQuestion(question)}
-              options={options}
+              options={orderedOptions}
               selectedValue={selectedValues[0] ?? null}
               onInfoClick={openInfo}
               onSelect={(value) => {
@@ -835,7 +813,7 @@ export function ApiQuestionnaireStep({
               questionLabel={questionLabel}
               questionText={question.question_text}
               questionSubText={questionSubText}
-              options={options}
+              options={orderedOptions}
               selectedValue={selectedValues[0] ?? null}
               layout="row"
               onInfoClick={openInfo}
@@ -852,7 +830,7 @@ export function ApiQuestionnaireStep({
               questionLabel={questionLabel}
               questionText={question.question_text}
               questionSubText={questionSubText}
-              options={options}
+              options={orderedOptions}
               selectedValue={selectedValues[0] ?? null}
               layout={useCoffeeTeaIntakeLayout ? 'coffee-intake' : 'wrap'}
               onInfoClick={openInfo}
@@ -878,7 +856,7 @@ export function ApiQuestionnaireStep({
 
               {single || multi ? (
                 <div className="flex flex-wrap gap-2.5">
-                  {options.map((option) => {
+                  {orderedOptions.map((option) => {
                     const value = getOptionValue(option)
                     const label = getOptionLabel(option) || value
                     if (!value && !label) return null
@@ -989,32 +967,16 @@ export function ApiQuestionnaireStep({
         onClose={() => setInfoOpen(false)}
       />
 
-      <footer className="fixed inset-x-0 bottom-0 z-10 bg-[rgba(255,255,255,0.05)] backdrop-blur-[25px]">
-        <div className={MCQ_SHELL_FOOTER_INNER_CLASS}>
-          {isLast ? (
-            <div className="min-w-0 flex-1" />
-          ) : (
-            <div className="min-w-0 max-w-[200px] flex-1">
-              <p className="text-[10px] font-medium uppercase tracking-[1.1px] leading-[14px] text-[rgba(255,255,255,0.4)]">
-                NEXT QUESTION
-              </p>
-              <p className="mt-0.5 overflow-hidden whitespace-nowrap text-[13px] font-medium leading-[18px] text-[rgba(255,255,255,0.6)]">
-                {formatNextQuestionPreview(nextPreview.line1, nextPreview.line2)}
-              </p>
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={handleNext}
-            disabled={isSaving || !canGoNext}
-            className={`flex size-10 shrink-0 items-center justify-center rounded-full border border-solid border-[#969696] p-px ${nextShadow} disabled:cursor-not-allowed disabled:opacity-40`}
-            style={{ backgroundImage: nextGradient }}
-            aria-label={isSaving ? 'Saving answer' : isLast ? 'Continue' : 'Next question'}
-          >
-            <img src={nextChevronIcon} alt="" className="size-4" aria-hidden />
-          </button>
-        </div>
-      </footer>
+      <QuestionnaireFooter
+        onBack={handleBack}
+        onNext={handleNext}
+        backDisabled={isSaving}
+        nextDisabled={isSaving || !canGoNext}
+        nextAriaLabel={isSaving ? 'Saving answer' : isLast ? 'Continue' : 'Next question'}
+        preview={isLast ? '' : nextQuestionPreview}
+        buttonGradient={nextGradient}
+        buttonShadowClass={nextShadow}
+      />
     </div>
   )
 }

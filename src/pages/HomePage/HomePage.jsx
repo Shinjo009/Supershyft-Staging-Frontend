@@ -5,6 +5,8 @@ import MetabolicAgeOrb from '../../metabolic-age-orb/MetabolicAgeOrb.jsx';
 import HealthParametersSection from '../../components/HomePage/HealthParametersSection';
 import HomeReassessmentBottomSheet from '../../components/HomePage/HomeReassessmentBottomSheet/HomeReassessmentBottomSheet';
 import PositiveWinsSection from '../../components/HomePage/PositiveWinsSection/PositiveWinsSection';
+import AllergySensitivitySection from '../../components/HomePage/AllergySensitivitySection';
+import CancerScreeningSection from '../../components/HomePage/CancerScreeningSection';
 import RiskAnalysisSection, {
   buildHomeBloodMarkersFromBloodParametersResponse,
 } from '../../components/HomePage/RiskAnalysisSection';
@@ -16,6 +18,7 @@ import {
   WhatHappensNextCard,
 } from '../../components/HomePage/ScheduledStatusUI';
 import { BACKEND_BASE_URL, BACKEND_ENABLED } from '../../config/appConfig';
+import { buildReportScreenMarkers } from '../../utils/reportScreenMarkers';
 import { getAccessToken } from '../../utils/authStorage';
 import {
   fetchLatestAssessmentReport,
@@ -578,6 +581,8 @@ const HomePage = ({
   onOpenHealthAssessment,
   onOpenB2bHealthAssessment,
   onNavigateToBloodMarkers,
+  onNavigateToCancerMarkers,
+  onNavigateToAllergySensitivity,
   onNavigateToBloodMarkerDetail,
   onNavigateToPackages,
   onNavigateToDoctors,
@@ -653,6 +658,32 @@ const HomePage = ({
   const [hasStableOverviewData, setHasStableOverviewData] = useState(() => hasRenderableOverviewData(preloadedData));
   /** null = overview pipeline has not returned blood markers yet; array = rows for RiskAnalysisSection (avoids a second request + idle delay). */
   const [homeBloodMarkersForSection, setHomeBloodMarkersForSection] = useState(null);
+  const [reportAllergySummary, setReportAllergySummary] = useState(null);
+  const [reportCancerHome, setReportCancerHome] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchLatestAssessmentReport((assessmentId) => `/reports/${assessmentId}/blood-parameters`)
+      .then(({ assessmentId, response }) => {
+        if (!active) {
+          return;
+        }
+        const reportMarkers = buildReportScreenMarkers(response, assessmentId);
+        setReportAllergySummary(reportMarkers.hasAllergy ? reportMarkers.allergySummary : null);
+        setReportCancerHome({
+          count: reportMarkers.cancerCount,
+          areas: reportMarkers.cancerAreas,
+        });
+      })
+      .catch(() => {
+        if (active) {
+          setReportCancerHome({ count: 0, areas: [] });
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
   const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false);
   /** null | 'bio-ai' | 'blood' — only the active row shows "Downloading..." */
   const [downloadingReportKind, setDownloadingReportKind] = useState(null);
@@ -2266,6 +2297,17 @@ const HomePage = ({
         onBloodMarkersSeeMore={handleBloodMarkersSeeMore}
         onHomeBloodMarkerSelect={handleHomeBloodMarkerCardSelect}
         prefetchedHomeBloodMarkers={homeBloodMarkersForSection}
+      />
+
+      <AllergySensitivitySection
+        onSeeMore={onNavigateToAllergySensitivity}
+        summary={reportAllergySummary}
+      />
+
+      <CancerScreeningSection
+        onSeeMore={onNavigateToCancerMarkers}
+        areas={reportCancerHome?.areas}
+        count={reportCancerHome?.count}
       />
 
       {isDownloadMenuOpen ? (

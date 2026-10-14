@@ -3,6 +3,7 @@ import Typography from '../../components/Typography';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import Logo from '../../components/Logo';
+import AuthConsentCheckbox from '../../components/AuthConsentCheckbox';
 import metfluxLogo from '../../images/metflux_logo.svg';
 
 /**
@@ -17,10 +18,11 @@ const MAX_PHONE_DIGITS = 12;
 
 const LoginPage = ({ onSuccess, onSignup }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [consentGranted, setConsentGranted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const phoneDigitCount = phoneNumber.trim().length;
-  const canSendOtp = phoneDigitCount >= MIN_PHONE_DIGITS;
+  const canSendOtp = phoneDigitCount >= MIN_PHONE_DIGITS && consentGranted;
 
   const handleSendOTP = async () => {
     if (canSendOtp) {
@@ -40,12 +42,12 @@ const LoginPage = ({ onSuccess, onSignup }) => {
     <div className="max-w-md mx-auto min-h-full px-8 pt-[75px] pb-6 flex flex-col">
       <Logo size="lg" variant="onDark" />
 
-      <div className="mt-[105px]">
+      <div className="mt-[105px] flex-1 flex flex-col">
         <Typography variant="heading" as="h2" align="center">
           Log In
         </Typography>
 
-        <div className="mt-[44px]">
+        <div className="mt-[44px] flex-1 flex flex-col">
           <Input
             type="tel"
             placeholder="Phone Number"
@@ -57,7 +59,14 @@ const LoginPage = ({ onSuccess, onSignup }) => {
             }}
           />
 
-          <div className="mt-6">
+          <div className="mt-9">
+            <AuthConsentCheckbox
+              checked={consentGranted}
+              onChange={setConsentGranted}
+            />
+          </div>
+
+          <div className="mt-auto">
             <Button
               onClick={handleSendOTP}
               loading={loading}
@@ -65,23 +74,23 @@ const LoginPage = ({ onSuccess, onSignup }) => {
             >
               Send OTP
             </Button>
+
+            {error ? (
+              <p className="mt-3 text-center text-[11px] text-[#FF9D9D]">{error}</p>
+            ) : null}
+
+            <div className="text-center mt-4">
+              <span className="inline-flex items-center justify-center gap-1 opacity-80 text-white text-center font-lato text-[11px] font-medium leading-normal tracking-[0.05px]">
+                <span>Don't have an Account?</span>
+                <span
+                  className="text-[13px] tracking-[0.06px] underline cursor-pointer hover:opacity-80"
+                  onClick={onSignup}
+                >
+                  Sign Up
+                </span>
+              </span>
+            </div>
           </div>
-
-          {error ? (
-            <p className="mt-3 text-center text-[11px] text-[#FF9D9D]">{error}</p>
-          ) : null}
-        </div>
-
-        <div className="text-center mt-4">
-          <span className="inline-flex items-center justify-center gap-1 opacity-80 text-white text-center font-lato text-[11px] font-medium leading-normal tracking-[0.05px]">
-            <span>Don't have an Account?</span>
-            <span
-              className="text-[13px] tracking-[0.06px] underline cursor-pointer hover:opacity-80"
-              onClick={onSignup}
-            >
-              Sign Up
-            </span>
-          </span>
         </div>
       </div>
 

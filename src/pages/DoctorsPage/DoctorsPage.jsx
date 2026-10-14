@@ -1,70 +1,226 @@
-import React from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import './DoctorsPage.css';
+import { getExperts } from '../../services/expertsService';
+import { isListedExpert, mapExpertRecord } from '../../utils/expertsCatalog';
 import NavBar from '../../components/NavBar';
-import SuperCarePlanCard from '../../components/SuperCarePlanCard';
-import priorityDoctorImage from '../../images/im2 2.svg';
-import holisticNutritionImage from '../../images/im6 2.svg';
+import bannerOne from '../../images/supercare/supercare-banner-1.jpg';
+import bannerTwo from '../../images/supercare/supercare-banner-2.png';
+import bannerThree from '../../images/supercare/supercare-banner-3.png';
+import bannerFour from '../../images/supercare/supercare-banner-4.png';
+import nutritionBannerOne from '../../images/supercare/nutrition/banner-1.jpg';
+import nutritionBannerTwo from '../../images/supercare/nutrition/banner-2.jpg';
+import nutritionBannerThree from '../../images/supercare/nutrition/banner-3.jpg';
+import nutritionBannerFour from '../../images/supercare/nutrition/banner-4.png';
+import ayurvedaBannerOne from '../../images/supercare/ayurveda/banner-1.jpg';
+import ayurvedaBannerTwo from '../../images/supercare/ayurveda/banner-2.png';
+import ayurvedaBannerThree from '../../images/supercare/ayurveda/banner-3.png';
+import ayurvedaBannerFour from '../../images/supercare/ayurveda/banner-4.png';
+import doctorPhoto from '../../images/supercare/supercare-doctor.jpg';
+import cartIcon from '../../images/supercare/supercare-cart.svg';
+import searchIcon from '../../images/supercare/supercare-search.svg';
+import starIcon from '../../images/supercare/supercare-star.svg';
 
-const PLAN_METRICS = [
-  { value: 'Clinical', label: 'Experts' },
-  { value: '30 Mins', label: 'Session' },
-  { value: 'Personal', label: 'Support' },
-];
+const TABS = ['Doctors', 'Ayurveda', 'Nutritionists', 'Packages'];
 
-const CartIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path d="M17 18C17.5304 18 18.0391 18.2107 18.4142 18.5858C18.7893 18.9609 19 19.4696 19 20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22C16.4696 22 15.9609 21.7893 15.5858 21.4142C15.2107 21.0391 15 20.5304 15 20C15 18.89 15.89 18 17 18ZM1 2H4.27L5.21 4H20C20.2652 4 20.5196 4.10536 20.7071 4.29289C20.8946 4.48043 21 4.73478 21 5C21 5.17 20.95 5.34 20.88 5.5L17.3 11.97C16.96 12.58 16.3 13 15.55 13H8.1L7.2 14.63L7.17 14.75C7.17 14.8163 7.19634 14.8799 7.24322 14.9268C7.29011 14.9737 7.3537 15 7.42 15H19V17H7C6.46957 17 5.96086 16.7893 5.58579 16.4142C5.21071 16.0391 5 15.5304 5 15C5 14.65 5.09 14.32 5.24 14.04L6.6 11.59L3 4H1V2ZM7 18C7.53043 18 8.03914 18.2107 8.41421 18.5858C8.78929 18.9609 9 19.4696 9 20C9 20.5304 8.78929 21.0391 8.41421 21.4142C8.03914 21.7893 7.53043 22 7 22C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20C5 18.89 5.89 18 7 18Z" fill="white" />
-  </svg>
-);
+const BANNERS_BY_TAB = {
+  Doctors: [bannerOne, bannerTwo, bannerThree, bannerFour],
+  Ayurveda: [ayurvedaBannerOne, ayurvedaBannerTwo, ayurvedaBannerThree, ayurvedaBannerFour],
+  Nutritionists: [nutritionBannerOne, nutritionBannerTwo, nutritionBannerThree, nutritionBannerFour],
+};
 
 const DoctorsPage = ({
   onBack,
   onOpenPackages,
   onNavigateToSuperClub,
   onOpenDoctorProfile,
-  onOpenNutritionistProfile,
+  initialTab = 'Doctors',
 }) => {
+  const [activeTab, setActiveTab] = useState(
+    TABS.includes(initialTab) ? initialTab : 'Doctors',
+  );
+  const [query, setQuery] = useState('');
+  const [experts, setExperts] = useState([]);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [loadError, setLoadError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    getExperts()
+      .then((response) => {
+        if (!active) return;
+        const rows = Array.isArray(response?.data) ? response.data : [];
+        setExperts(rows.map(mapExpertRecord).filter(isListedExpert));
+        setLoadError('');
+        setHasLoaded(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        setExperts([]);
+        setLoadError('Unable to load experts.');
+        setHasLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const visibleExperts = useMemo(() => {
+    const banners = BANNERS_BY_TAB[activeTab] || BANNERS_BY_TAB.Doctors;
+    const tabExperts = experts.filter((expert) => expert.tab === activeTab);
+    const normalized = query.trim().toLowerCase();
+    const matched = normalized
+      ? tabExperts.filter((expert) => (
+        expert.name.toLowerCase().includes(normalized)
+        || expert.specialty.toLowerCase().includes(normalized)
+        || expert.experience.toLowerCase().includes(normalized)
+      ))
+      : tabExperts;
+    return matched.map((expert, index) => ({
+      ...expert,
+      banner: banners[index % banners.length],
+      bannerFit: 'cover',
+    }));
+  }, [activeTab, experts, query]);
+
+  const searchPlaceholder = activeTab === 'Doctors'
+    ? 'Search doctors...'
+    : `Search ${activeTab.toLowerCase()}...`;
+
   return (
     <div className="doctors-page">
-      <div className="doctors-page__fixed-top">
+      <div className="doctors-page__scroll">
         <header className="doctors-page__header">
-          <div className="doctors-page__header-left">
-            <h1 className="doctors-page__title">Consult Experts</h1>
-          </div>
-
-          <div className="doctors-page__header-actions">
-            <button type="button" className="doctors-page__icon-btn" aria-label="Open cart">
-              <CartIcon />
-            </button>
-          </div>
+          <h1 className="doctors-page__title">Consult Experts</h1>
+          <button type="button" className="doctors-page__cart" aria-label="Open cart">
+            <img src={cartIcon} alt="" width="24" height="24" />
+          </button>
         </header>
-      </div>
 
-      <div className="doctors-page__content">
-        <div className="doctors-page__cards">
-          <SuperCarePlanCard
-            title="Priority Doctor Connect"
-            subtitle="Focused Health Guidance Session"
-            imageSrc={priorityDoctorImage}
-            metrics={PLAN_METRICS}
-            priceNow={499}
-            priceOld={998}
-            discountLabel="44% OFF"
-            onViewPlan={onOpenDoctorProfile}
-            ariaLabel="Priority Doctor Connect plan"
-          />
+        <div className="doctors-page__filters" role="tablist" aria-label="Expert categories">
+          <div className="doctors-page__filter-track">
+            {TABS.map((tab) => {
+              const isActive = tab === activeTab;
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  className={`doctors-page__filter${isActive ? ' doctors-page__filter--active' : ''}`}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    setQuery('');
+                  }}
+                >
+                  {tab}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-          <SuperCarePlanCard
-            title="Holistic Nutrition Consult"
-            subtitle="Focused Wellness Guidance Session"
-            imageSrc={holisticNutritionImage}
-            metrics={PLAN_METRICS}
-            priceNow={499}
-            priceOld={998}
-            discountLabel="44% OFF"
-            onViewPlan={onOpenNutritionistProfile}
-            ariaLabel="Holistic Nutrition Consult plan"
+        <label className="doctors-page__search">
+          <input
+            type="text"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            className="doctors-page__search-input"
+            placeholder={searchPlaceholder}
+            aria-label={searchPlaceholder}
           />
+          <img src={searchIcon} alt="" width="13" height="13" />
+        </label>
+
+        <div className="doctors-page__list">
+          {!hasLoaded ? (
+            <p className="doctors-page__empty">Loading experts...</p>
+          ) : null}
+          {hasLoaded && loadError ? (
+            <p className="doctors-page__empty">{loadError}</p>
+          ) : null}
+          {hasLoaded && !loadError && visibleExperts.length === 0 ? (
+            <p className="doctors-page__empty">
+              {activeTab === 'Packages' ? 'No packages available.' : 'No experts found.'}
+            </p>
+          ) : null}
+          {visibleExperts.map((expert) => (
+            <article key={expert.id} className="doctors-page__card">
+              <div className="doctors-page__hero">
+                <div className="doctors-page__banner" aria-hidden="true">
+                  <img
+                    src={expert.banner}
+                    alt=""
+                    className={expert.bannerFit ? `is-${expert.bannerFit}` : undefined}
+                    style={expert.bannerFit ? undefined : { top: expert.bannerTop, height: expert.bannerHeight }}
+                  />
+                </div>
+                {expert.rating ? (
+                  <span className="doctors-page__rating">
+                    <span>{expert.rating}</span>
+                    <img src={starIcon} alt="" width="11.6667" height="11.0833" />
+                  </span>
+                ) : null}
+                <div className="doctors-page__identity">
+                  <span className="doctors-page__avatar">
+                    <img
+                      src={expert.photo || doctorPhoto}
+                      alt=""
+                      onError={(event) => {
+                        event.currentTarget.onerror = null;
+                        event.currentTarget.src = doctorPhoto;
+                      }}
+                    />
+                  </span>
+                  <div className="doctors-page__identity-copy">
+                    <div>
+                      <h2>{expert.name}</h2>
+                      <p className={expert.specialtyStrong ? 'is-strong' : undefined}>{expert.specialty}</p>
+                    </div>
+                    {expert.experience ? <span>{expert.experience}</span> : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className="doctors-page__body">
+                <div className="doctors-page__stats">
+                  {expert.availability ? (
+                    <div>
+                      <strong>{expert.availability}</strong>
+                      <span>AVAILABILITY</span>
+                    </div>
+                  ) : null}
+                  {expert.consultation ? (
+                    <div>
+                      <strong>{expert.consultation}</strong>
+                      <span>CONSULTATION</span>
+                    </div>
+                  ) : null}
+                  {expert.duration ? (
+                    <div>
+                      <strong>{expert.duration}</strong>
+                      <span>DURATION</span>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="doctors-page__price-row">
+                  <div className="doctors-page__price">
+                    <div className="doctors-page__price-top">
+                      <strong>{expert.price}</strong>
+                      {expert.discount ? <span>{expert.discount}</span> : null}
+                    </div>
+                    {expert.priceOld ? <s>{expert.priceOld}</s> : null}
+                  </div>
+                  <button
+                    type="button"
+                    className="doctors-page__profile"
+                    onClick={() => onOpenDoctorProfile?.(expert)}
+                  >
+                    View Profile
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))}
         </div>
       </div>
 

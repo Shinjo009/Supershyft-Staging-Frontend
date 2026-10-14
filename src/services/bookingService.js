@@ -154,6 +154,57 @@ export async function createBookPayOrder(payload) {
 }
 
 /**
+ * POST /book/consultation/pay — create a Razorpay order for a Super Care consult.
+ *
+ * @param {{ members: Array<{ user_id: number, expert_type: string, expert_id: number, date: string, slot: string }> }} payload
+ */
+export async function createConsultationPayOrder(payload) {
+  const response = await authorizedRequest('/book/consultation/pay', {
+    method: 'POST',
+    payload,
+    missingAuthMessage: 'Please log in to complete payment.',
+  });
+  return normalizeBookPayOrder(response);
+}
+
+/**
+ * POST /book/consultation — verify Razorpay payment and schedule the consult.
+ *
+ * @param {{ razorpay_payment_id: string, razorpay_order_id: string, razorpay_signature: string }} payload
+ */
+export async function confirmConsultationBooking(payload) {
+  const razorpay_payment_id = String(payload?.razorpay_payment_id || '').trim();
+  const razorpay_order_id = String(payload?.razorpay_order_id || '').trim();
+  const razorpay_signature = String(payload?.razorpay_signature || '').trim();
+  if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
+    throw new Error('Payment confirmation is missing Razorpay details.');
+  }
+
+  const response = await authorizedRequest('/book/consultation', {
+    method: 'POST',
+    payload: {
+      razorpay_payment_id,
+      razorpay_order_id,
+      razorpay_signature,
+    },
+    missingAuthMessage: 'Please log in to complete payment.',
+  });
+  const data = response?.data && typeof response.data === 'object' ? response.data : response;
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid consultation booking response.');
+  }
+  if (data.payment_verified === false) {
+    throw new Error('Payment could not be verified.');
+  }
+  const members = Array.isArray(data.members) ? data.members : [];
+  const failed = members.find((member) => String(member?.status || '').toLowerCase() !== 'success');
+  if (failed) {
+    throw new Error(failed.message || 'Consultation could not be scheduled.');
+  }
+  return data;
+}
+
+/**
  * POST /discounts/validate — check a promo code against the current cart.
  *
  * @param {{ code: string, items: Array<object>, city?: string }} payload

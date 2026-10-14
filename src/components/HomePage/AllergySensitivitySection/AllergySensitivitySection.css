@@ -1,0 +1,264 @@
+.allergy-sensitivity {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 16px;
+  padding: 0 16px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.allergy-sensitivity__header {
+  display: flex;
+  width: 100%;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.allergy-sensitivity__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.allergy-sensitivity__title {
+  margin: 0;
+  color: #fff;
+  font-family: Lato, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.allergy-sensitivity__subtitle {
+  margin: 0;
+  color: #c4c4c4;
+  font-family: "DM Sans", sans-serif;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: normal;
+}
+
+.allergy-sensitivity__see-more {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #999;
+  font-family: Lato, sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 16px;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.allergy-sensitivity__card {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 24px;
+  border: 1px solid rgba(218, 193, 90, 0.5);
+  background-color: #071210;
+  background-image: linear-gradient(240.48deg, rgba(218, 193, 90, 0.2) 0%, rgba(0, 0, 0, 0.2) 100%);
+  box-shadow: 0 0 60px rgba(218, 193, 90, 0.2);
+}
+
+.allergy-sensitivity__card--low {
+  border-color: rgba(144, 223, 158, 0.5);
+  background-image: linear-gradient(240.48deg, rgba(144, 223, 158, 0.2) 0%, rgba(0, 0, 0, 0.2) 100%);
+  box-shadow: 0 0 60px rgba(144, 223, 158, 0.2);
+}
+
+.allergy-sensitivity__gauge-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.allergy-sensitivity__gauge {
+  position: relative;
+  display: flex;
+  width: 112px;
+  height: 112px;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 56px;
+  box-shadow: 0 0 4px #90df9e;
+}
+
+.allergy-sensitivity__gauge::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 56px;
+  border: 1px solid #dac15a;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.allergy-sensitivity__card--low .allergy-sensitivity__gauge::before {
+  border-color: #90df9e;
+}
+
+.allergy-sensitivity__spark {
+  position: absolute;
+  display: block;
+  border-radius: 3px;
+  background: #dac15a;
+  box-shadow: 0 0 8px 2px rgba(218, 193, 90, 0.5);
+}
+
+.allergy-sensitivity__spark--large {
+  width: 6px;
+  height: 6px;
+  top: 8px;
+  right: 21px;
+}
+
+.allergy-sensitivity__spark--small {
+  width: 4px;
+  height: 4px;
+  left: 13px;
+  bottom: 16px;
+  border-radius: 2px;
+}
+
+.allergy-sensitivity__card--low .allergy-sensitivity__spark {
+  background: #90df9e;
+  box-shadow: 0 0 8px 2px rgba(144, 223, 158, 0.5);
+}
+
+.allergy-sensitivity__label,
+.allergy-sensitivity__value,
+.allergy-sensitivity__unit {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  text-align: center;
+}
+
+.allergy-sensitivity__label {
+  color: #fff;
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.allergy-sensitivity__value {
+  margin-top: 8px;
+  color: #fff;
+  font-family: Lato, sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 28px;
+}
+
+.allergy-sensitivity__unit {
+  color: #9a9a9a;
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+  font-weight: 300;
+  line-height: 16px;
+}
+
+.allergy-sensitivity__badge {
+  padding: 7px 13px;
+  border-radius: 20px;
+  border: 1px solid rgba(218, 193, 90, 0.3);
+  background: rgba(0, 0, 0, 0.05);
+  color: #dac15a;
+  font-family: "DM Sans", sans-serif;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: normal;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.allergy-sensitivity__card--low .allergy-sensitivity__badge {
+  border-color: rgba(144, 223, 158, 0.3);
+  color: #90df9e;
+}
+
+.allergy-sensitivity__summary {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  align-self: stretch;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.allergy-sensitivity__summary-top {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.allergy-sensitivity__method {
+  padding: 1px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: #c4c4c4;
+  font-family: "DM Sans", sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+.allergy-sensitivity__summary-title {
+  margin: 0;
+  color: #fff;
+  font-family: "DM Sans", sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+.allergy-sensitivity__stats {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+}
+
+.allergy-sensitivity__stats > div {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.allergy-sensitivity__stat,
+.allergy-sensitivity__stat-label {
+  margin: 0;
+}
+
+.allergy-sensitivity__stat {
+  color: #fff;
+  font-family: "DM Sans", sans-serif;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 28px;
+}
+
+.allergy-sensitivity__stat-label {
+  color: #9a9a9a;
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}

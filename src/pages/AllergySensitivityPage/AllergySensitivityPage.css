@@ -1,0 +1,554 @@
+.allergy-page {
+  min-height: 100vh;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 16px 120px;
+  overflow-y: auto;
+  font-family: "DM Sans", sans-serif;
+  font-optical-sizing: none;
+  font-variation-settings: "opsz" 14;
+  -webkit-font-smoothing: antialiased;
+}
+
+.allergy-page__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 44px;
+}
+
+.allergy-page__icon-btn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.allergy-page__icon-btn--end {
+  margin-left: auto;
+}
+
+.allergy-page__title {
+  margin: 0;
+  color: #fff;
+  font-family: Lato, sans-serif;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: normal;
+  letter-spacing: 0.1px;
+}
+
+.allergy-page__body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.allergy-page__summary {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.allergy-page__hero {
+  position: relative;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.allergy-page__field {
+  position: absolute;
+  left: 50%;
+  top: -43px;
+  width: 288px;
+  height: 286px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+  mix-blend-mode: screen;
+}
+
+.allergy-page__field img {
+  display: block;
+  width: 288px;
+  height: 286px;
+}
+
+.allergy-page__field-spark {
+  position: absolute;
+  left: 72px;
+  bottom: 162px;
+  width: 4px;
+  height: 4px;
+  border-radius: 2px;
+  background: #90df9e;
+  box-shadow: 0 0 8px 2px rgba(144, 223, 158, 0.5);
+}
+
+.allergy-page__heading {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.allergy-page__heading-label {
+  margin: 0;
+  color: #fff;
+  font-family: "DM Sans", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.allergy-page__info {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
+.allergy-page__orb {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 112px;
+  height: 112px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  overflow: visible;
+}
+
+.allergy-page__ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  border-radius: 999px;
+  border: 1px solid rgba(144, 223, 158, 0.3);
+  box-shadow: 0 0 4px #90df9e;
+  transform: translate(-50%, -50%);
+}
+
+.allergy-page__ring--inner {
+  width: 112px;
+  height: 112px;
+}
+
+.allergy-page__ring--middle {
+  width: 130px;
+  height: 130px;
+}
+
+.allergy-page__ring--outer {
+  width: 148px;
+  height: 148px;
+}
+
+.allergy-page__spark {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  background: #90df9e;
+  border-radius: 3px;
+  box-shadow: 0 0 8px 2px rgba(144, 223, 158, 0.5);
+}
+
+.allergy-page__spark--a {
+  width: 6px;
+  height: 6px;
+  top: 8px;
+  right: 21px;
+}
+
+.allergy-page__spark--b {
+  width: 6px;
+  height: 6px;
+  top: 100px;
+  right: 8px;
+}
+
+.allergy-page__spark--c {
+  width: 4px;
+  height: 4px;
+  left: 13px;
+  bottom: 16px;
+  border-radius: 2px;
+}
+
+.allergy-page__spark--d {
+  width: 4px;
+  height: 4px;
+  left: 22px;
+  bottom: 110px;
+  border-radius: 2px;
+}
+
+.allergy-page__score,
+.allergy-page__unit {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  text-align: center;
+}
+
+.allergy-page__score {
+  color: #fff;
+  font-family: Lato, sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 28px;
+}
+
+.allergy-page__unit {
+  color: #9a9a9a;
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+  font-weight: 300;
+  line-height: 16px;
+}
+
+.allergy-page__level {
+  position: relative;
+  z-index: 1;
+  padding: 7px 13px;
+  border-radius: 20px;
+  border: 1px solid rgba(144, 223, 158, 0.3);
+  background: rgba(0, 0, 0, 0.05);
+  color: #90df9e;
+  font-family: "DM Sans", sans-serif;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: normal;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.allergy-page__scale {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.allergy-page__track {
+  position: relative;
+  height: 10px;
+}
+
+.allergy-page__track::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 3px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #90df9e 0%, #dac15a 25%, #ee8b48 50%, #e95d5c 75%);
+}
+
+.allergy-page__marker {
+  position: absolute;
+  top: 0;
+  left: 25.61%;
+  width: 3.05%;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: #f7de30;
+  box-shadow: 0 0 8px 2px rgba(247, 222, 48, 0.5);
+}
+
+.allergy-page__scale-labels {
+  display: flex;
+  justify-content: space-between;
+  color: #9a9a9a;
+  font-family: "DM Sans", sans-serif;
+  font-size: 10px;
+  font-weight: 300;
+  line-height: normal;
+  text-transform: uppercase;
+}
+
+.allergy-page__note {
+  margin: 0;
+  width: 100%;
+  color: #c3c7c7;
+  text-align: center;
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 26px;
+}
+
+.allergy-page__stats {
+  position: relative;
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  align-items: stretch;
+  justify-content: space-between;
+  min-height: 66.59px;
+  padding: 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(ellipse 278.32px 75.34px at 131.2px 13.32px, rgba(66, 101, 100, 0.5) 0%, rgba(44, 62, 77, 0.25) 25%, rgba(23, 23, 54, 0) 50%),
+    radial-gradient(ellipse 371.09px 94.17px at 262.4px 0, rgba(45, 82, 60, 0.5) 0%, rgba(36, 52, 50, 0.25) 25%, rgba(28, 21, 40, 0) 50%),
+    radial-gradient(ellipse 463.86px 47.09px at 0 33.3px, rgba(44, 94, 120, 0.5) 0%, rgba(29, 62, 78, 0.25) 25%, rgba(15, 29, 36, 0) 50%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5));
+  box-shadow: inset 0 0 40px 1px rgba(49, 192, 178, 0.3);
+}
+
+.allergy-page__stats p,
+.allergy-page__stat-rule {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.allergy-page__stats p {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+  padding-bottom: 0.59px;
+  text-align: center;
+  color: #c4c4c4;
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 19.6px;
+  letter-spacing: 0;
+  font-optical-sizing: none;
+  font-variation-settings: "opsz" 14;
+}
+
+.allergy-page__stats p span {
+  white-space: nowrap;
+}
+
+.allergy-page__stats strong {
+  color: #fff;
+  font-family: "DM Sans", sans-serif;
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 19.6px;
+  letter-spacing: 0;
+  font-optical-sizing: none;
+  font-variation-settings: "opsz" 14;
+}
+
+.allergy-page__stat--sensitive {
+  color: #e95d5c;
+}
+
+.allergy-page__stat--clear {
+  color: #90df9e;
+}
+
+.allergy-page__stat-rule {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+}
+
+.allergy-page__stat-rule img {
+  display: block;
+  width: 40.59px;
+  height: 1px;
+  transform: rotate(90deg);
+}
+
+.allergy-page__profile {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.allergy-page__profile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.allergy-page__profile-head h2 {
+  margin: 0;
+  color: #e5e2e3;
+  font-family: "DM Sans", sans-serif;
+  font-size: 16px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 28px;
+  letter-spacing: 0;
+  font-optical-sizing: none;
+  font-variation-settings: "opsz" 14;
+}
+
+.allergy-page__see-more {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: #999;
+  font-family: Lato, sans-serif;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 16px;
+  letter-spacing: 0;
+  font-variation-settings: normal;
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-thickness: 5%;
+  text-underline-offset: 2px;
+}
+
+.allergy-page__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.allergy-page__row {
+  display: flex;
+  height: 68px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 1px 17px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.allergy-page__row-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.allergy-page__row-icon {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 1px;
+  border-radius: 10px;
+  border: 1px solid rgba(144, 223, 158, 0.2);
+  background-image: linear-gradient(135deg, rgba(144, 223, 158, 0.2) 0%, rgba(144, 223, 158, 0.05) 100%);
+}
+
+.allergy-page__row-icon--low {
+  border-color: rgba(218, 193, 90, 0.2);
+  background-image: linear-gradient(135deg, rgba(218, 193, 90, 0.2) 0%, rgba(218, 193, 90, 0.05) 100%);
+}
+
+.allergy-page__row-icon--pending {
+  border-color: rgba(154, 154, 154, 0.2);
+  background-image: linear-gradient(135deg, rgba(154, 154, 154, 0.2) 0%, rgba(154, 154, 154, 0.05) 100%);
+}
+
+.allergy-page__row-icon--high {
+  border-color: rgba(233, 93, 92, 0.2);
+  background-image: linear-gradient(135deg, rgba(233, 93, 92, 0.2) 0%, rgba(233, 93, 92, 0.05) 100%);
+}
+
+.allergy-page__row-icon--optimal-bright {
+  border-color: rgba(50, 255, 150, 0.2);
+  background-image: linear-gradient(135deg, rgba(50, 255, 150, 0.2) 0%, rgba(50, 255, 150, 0.05) 100%);
+}
+
+.allergy-page__row-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.allergy-page__row-name {
+  color: #c4c4c4;
+  font-family: "DM Sans", sans-serif;
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 19.6px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-optical-sizing: none;
+  font-variation-settings: "opsz" 14;
+}
+
+.allergy-page__row-count {
+  color: rgba(204, 204, 204, 0.6);
+  font-family: "DM Sans", sans-serif;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  letter-spacing: 0;
+  font-optical-sizing: none;
+  font-variation-settings: "opsz" 14;
+}
+
+.allergy-page__row-status {
+  flex-shrink: 0;
+  padding: 7px 13px;
+  border-radius: 20px;
+  border: 1px solid rgba(144, 223, 158, 0.3);
+  background: rgba(0, 0, 0, 0.05);
+  color: #90df9e;
+  font-family: "DM Sans", sans-serif;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-optical-sizing: none;
+  font-variation-settings: "opsz" 14;
+}
+
+.allergy-page__row-status--low {
+  border-color: rgba(218, 193, 90, 0.3);
+  color: #dac15a;
+}
+
+.allergy-page__row-status--pending {
+  border-color: rgba(154, 154, 154, 0.3);
+  color: #9a9a9a;
+}
+
+.allergy-page__row-status--high {
+  border-color: rgba(233, 93, 92, 0.3);
+  color: #e95d5c;
+}

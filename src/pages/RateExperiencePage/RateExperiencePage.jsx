@@ -25,6 +25,17 @@ const IMPROVEMENT_OPTIONS = [
   { id: 'app-experience', label: 'App experience' },
 ];
 
+const STOOD_OUT_OPTIONS = [
+  { id: 'personalized-insights', label: 'Personalized insights' },
+  { id: 'report-clarity', label: 'Report clarity' },
+  { id: 'follow-up-support', label: 'Follow-up support' },
+  { id: 'easy-to-understand', label: 'Easy to understand' },
+  { id: 'great-team', label: 'Great team of experts' },
+  { id: 'smooth-experience', label: 'Smooth experience' },
+];
+
+const NEGATIVE_MOODS = new Set(['could-be-better', 'bad']);
+
 const FeedbackIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
     <path d="M4.5 7.875H13.5M4.5 10.125H10.125M5.625 2.25H12.375C13.6176 2.25 14.625 3.25736 14.625 4.5V11.25C14.625 12.4926 13.6176 13.5 12.375 13.5H9.28125L6.1875 15.75V13.5H5.625C4.38236 13.5 3.375 12.4926 3.375 11.25V4.5C3.375 3.25736 4.38236 2.25 5.625 2.25Z" stroke="#F38EB1" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -102,6 +113,21 @@ const RateExperiencePage = ({ onBack, currentUserId = null }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
+  const isNegativeMood = NEGATIVE_MOODS.has(overallMood);
+  const feedbackOptions = isNegativeMood ? IMPROVEMENT_OPTIONS : STOOD_OUT_OPTIONS;
+  const feedbackTitle = isNegativeMood ? 'What could be done better?' : 'What stood out?';
+
+  const selectMood = (moodId) => {
+    setOverallMood((current) => {
+      const nextIsNegative = NEGATIVE_MOODS.has(moodId);
+      const currentIsNegative = NEGATIVE_MOODS.has(current);
+      if (current && nextIsNegative !== currentIsNegative) {
+        setSelectedImprovements([]);
+      }
+      return moodId;
+    });
+  };
+
   const toggleImprovement = (id) => {
     setSelectedImprovements((prev) => (
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -160,7 +186,7 @@ const RateExperiencePage = ({ onBack, currentUserId = null }) => {
       </header>
 
       <div className="rate-experience-page__content">
-        <section className="rate-experience-page__section">
+        <section className="rate-experience-page__section rate-experience-page__mood-section">
           <SectionHeading tone="pink" icon={<FeedbackIcon />} title="Overall Experience" />
           <div className="rate-experience-page__mood-grid" role="radiogroup" aria-label="Overall experience">
             {MOOD_OPTIONS.map((option) => {
@@ -172,7 +198,7 @@ const RateExperiencePage = ({ onBack, currentUserId = null }) => {
                   role="radio"
                   aria-checked={isSelected}
                   className={`rate-experience-page__mood-btn${isSelected ? ' is-selected' : ''}`}
-                  onClick={() => setOverallMood(option.id)}
+                  onClick={() => selectMood(option.id)}
                 >
                   <span className="rate-experience-page__mood-emoji" aria-hidden="true">{option.emoji}</span>
                   <span className="rate-experience-page__mood-label">
@@ -202,50 +228,54 @@ const RateExperiencePage = ({ onBack, currentUserId = null }) => {
           </div>
         </section>
 
-        <section className="rate-experience-page__section rate-experience-page__section--feedback">
-          <SectionHeading tone="blue" icon={<PersonFeedbackIcon />} title="What could be done better?" />
-          <div className="rate-experience-page__chips">
-            {IMPROVEMENT_OPTIONS.map((option) => {
-              const isSelected = selectedImprovements.includes(option.id);
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  className={`rate-experience-page__chip${isSelected ? ' is-selected' : ''}`}
-                  onClick={() => toggleImprovement(option.id)}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
+        {overallMood ? (
+          <>
+            <section className="rate-experience-page__section rate-experience-page__section--feedback">
+              <SectionHeading tone="blue" icon={<PersonFeedbackIcon />} title={feedbackTitle} />
+              <div className="rate-experience-page__chips">
+                {feedbackOptions.map((option) => {
+                  const isSelected = selectedImprovements.includes(option.id);
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={`rate-experience-page__chip${isSelected ? ' is-selected' : ''}`}
+                      onClick={() => toggleImprovement(option.id)}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
 
-          <label className="rate-experience-page__textarea-wrap">
-            <span className="rate-experience-page__sr-only">Additional comments</span>
-            <textarea
-              className="rate-experience-page__textarea"
-              placeholder="Tell us about your experience..."
-              value={comments}
-              onChange={(event) => setComments(event.target.value)}
-              rows={4}
-            />
-          </label>
-        </section>
+              <label className="rate-experience-page__textarea-wrap">
+                <span className="rate-experience-page__sr-only">Additional comments</span>
+                <textarea
+                  className="rate-experience-page__textarea"
+                  placeholder="Tell us about your experience..."
+                  value={comments}
+                  onChange={(event) => setComments(event.target.value)}
+                  rows={4}
+                />
+              </label>
+            </section>
 
-        {submitError ? (
-          <p className="rate-experience-page__error" role="alert">{submitError}</p>
+            {submitError ? (
+              <p className="rate-experience-page__error" role="alert">{submitError}</p>
+            ) : null}
+
+            <button
+              type="button"
+              className={`rate-experience-page__submit${canSubmit ? ' is-enabled' : ''}`}
+              disabled={!canSubmit || isSubmitting}
+              onClick={() => {
+                void handleSubmit();
+              }}
+            >
+              {isSubmitting ? 'Submitting...' : 'Submit Review'}
+            </button>
+          </>
         ) : null}
-
-        <button
-          type="button"
-          className={`rate-experience-page__submit${canSubmit ? ' is-enabled' : ''}`}
-          disabled={!canSubmit || isSubmitting}
-          onClick={() => {
-            void handleSubmit();
-          }}
-        >
-          {isSubmitting ? 'Submitting...' : 'Submit Review'}
-        </button>
       </div>
     </div>
   );

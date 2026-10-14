@@ -43,7 +43,6 @@ export default function NavBar2({ defaultActive = 'home', onNavigate }) {
         label: 'Super Care',
         iconFilled: superCareIcon,
         iconUnfilled: superCareIconUnfilled,
-        locked: true,
       },
     ],
     []

@@ -10,8 +10,9 @@ import {
   SUPERCLUB_V1_SCREENS_ENABLED,
 } from './utils/superclubPlaylistLock';
 import { CAMP_DOCTOR_CONSULTATION_ENABLED } from './pages/CampDoctorConsultationPage/campDoctorConsultationConfig';
-import { readCampAppointments, saveCampAppointment } from './utils/campAppointments';
-import { fetchDoctorConsultationPopupEligibility, hasOptedOutOfConsultationPopup, optOutOfConsultationPopup } from './utils/campDoctorConsultationEligibility';
+import { getUpcomingCampAppointment, readCampAppointments, saveCampAppointment } from './utils/campAppointments';
+import ConsultationReminderBar from './pages/CampDoctorConsultationPage/ConsultationReminderBar';
+import { fetchDoctorConsultationPopupEligibility, optOutOfConsultationPopup } from './utils/campDoctorConsultationEligibility';
 import { resendOtp, verifyOtp, refreshToken, logout } from './services/authService';
 import { createUser, getMyProfiles, saveSuperclubMcqPreferences, getMyUpcomingSlot } from './services/usersService';
 import { getMyProfile } from './services/profileService';
@@ -84,6 +85,7 @@ const CampDoctorConsultationPage = lazy(() => import('./pages/CampDoctorConsulta
 const HealthScanIndexPage = lazy(() => import('./pages/HealthScanIndexPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const AllAppointmentsPage = lazy(() => import('./pages/AllAppointmentsPage'));
+const AppointmentDetailsPage = lazy(() => import('./pages/AppointmentDetailsPage'));
 const AddressesPage = lazy(() => import('./pages/AddressesPage'));
 const ConsultationNotesPage = lazy(() => import('./pages/ConsultationNotesPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
@@ -99,11 +101,12 @@ const HealthAssessmentPage = lazy(() => import('./pages/HealthAssessmentPage'));
 const QuestionnaireNullCatchupPage = lazy(() => import('./pages/QuestionnaireNullCatchupPage/QuestionnaireNullCatchupPage'));
 const QuestionnaireBlankPage = lazy(() => import('./pages/QuestionnaireBlankPage'));
 const BloodMarkersPage = lazy(() => import('./pages/BloodMarkersPage/BloodMarkersPage'));
+const AllergySensitivityPage = lazy(() => import('./pages/AllergySensitivityPage/AllergySensitivityPage'));
 const PackagesPage = lazy(() => import('./pages/PackagesPage'));
 const PackageDetailsPage = lazy(() => import('./pages/PackageDetailsPage'));
 const CreateCustomPackagePage = lazy(() => import('./pages/CreateCustomPackagePage/CreateCustomPackagePage'));
 const DoctorsPage = lazy(() => import('./pages/DoctorsPage'));
-const ExpertDetailsPage = lazy(() => import('./pages/ExpertDetailsPage'));
+const DoctorProfilePage = lazy(() => import('./pages/DoctorProfilePage'));
 const IntegratedHealthProgramPage = lazy(() => import('./pages/IntegratedHealthProgramPage'));
 const SuperClubPage = lazy(() => import('./pages/SuperClubPage/SuperClubPage'));
 const SuperClubPlaylistPage = lazy(() => import('./pages/SuperClubPage/SuperClubPlaylistPage'));
@@ -309,6 +312,8 @@ function App() {
   const [isSignupNewUserFlow, setIsSignupNewUserFlow] = useState(false);
   const [selectedPackageCard, setSelectedPackageCard] = useState(null);
   const [bloodMarkerDetailFromHome, setBloodMarkerDetailFromHome] = useState(null);
+  const [bloodMarkersInitialFilter, setBloodMarkersInitialFilter] = useState(null);
+  const [bloodMarkersReturnPage, setBloodMarkersReturnPage] = useState('home');
   const [canSwipeBack, setCanSwipeBack] = useState(false);
   const [preloadedHomeData, setPreloadedHomeData] = useState(null);
   const [forceHomeApiRefresh, setForceHomeApiRefresh] = useState(false);
@@ -319,20 +324,26 @@ function App() {
   }, []);
   const handleNavigateToBloodMarkerDetail = useCallback((row) => {
     setBloodMarkerDetailFromHome(row);
+    setBloodMarkersInitialFilter(null);
+    setBloodMarkersReturnPage('home');
     setCurrentPage('blood-markers');
   }, []);
   const bloodMarkersPageDetailProps = useMemo(
     () => ({
       initialDetailMarker: bloodMarkerDetailFromHome,
       onInitialDetailConsumed: () => setBloodMarkerDetailFromHome(null),
+      initialFilter: bloodMarkersInitialFilter,
     }),
-    [bloodMarkerDetailFromHome],
+    [bloodMarkerDetailFromHome, bloodMarkersInitialFilter],
   );
   const [isB2bQuestionnaireFlow, setIsB2bQuestionnaireFlow] = useState(false);
   const [healthAssessmentBackPage, setHealthAssessmentBackPage] = useState('home');
   const [nullCatchupAssessmentInstanceId, setNullCatchupAssessmentInstanceId] = useState(null);
   const [superclubPlaylistPayload, setSuperclubPlaylistPayload] = useState(null);
   const [campAppointments, setCampAppointments] = useState(() => readCampAppointments());
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [selectedExpertKind, setSelectedExpertKind] = useState('doctor');
+  const [selectedExpert, setSelectedExpert] = useState(null);
   const [showCampDoctorConsultation, setShowCampDoctorConsultation] = useState(false);
   const campDoctorPopupDismissedRef = useRef(false);
   const [doctorConsultationContext, setDoctorConsultationContext] = useState(null);
@@ -1444,10 +1455,7 @@ function App() {
       return undefined;
     }
 
-    if (campDoctorPopupDismissedRef.current) {
-      setShowCampDoctorConsultation(false);
-      return undefined;
-    }
+    campDoctorPopupDismissedRef.current = false;
 
     let cancelled = false;
 
@@ -1459,22 +1467,24 @@ function App() {
             setShowCampDoctorConsultation(false);
             return;
           }
-          const popupUserId = selectedAccountId ?? currentUserId;
-          const optedOut = hasOptedOutOfConsultationPopup(popupUserId, result.engagementId);
-          const shouldShow = Boolean(result.shouldShow) && !optedOut;
-          setShowCampDoctorConsultation(shouldShow);
-          setDoctorConsultationContext(shouldShow ? {
+          setShowCampDoctorConsultation(true);
+          setDoctorConsultationContext({
             engagementId: result.engagementId,
             engagementCode: result.engagementCode,
             consultationMode: result.consultationMode,
-            expertType: result.expertType,
-          } : null);
+            expertType: result.expertType || 'doctor',
+          });
         }
       } catch (error) {
         console.error('Failed to resolve doctor consultation popup eligibility:', error);
         if (!cancelled) {
-          setShowCampDoctorConsultation(false);
-          setDoctorConsultationContext(null);
+          setShowCampDoctorConsultation(true);
+          setDoctorConsultationContext({
+            engagementId: null,
+            engagementCode: null,
+            consultationMode: null,
+            expertType: 'doctor',
+          });
         }
       }
     };
@@ -1830,7 +1840,13 @@ function App() {
         To hide: set CAMP_DOCTOR_CONSULTATION_ENABLED to false, or comment this block
         and the CampDoctorConsultationPage import above.
       */}
-      {CAMP_DOCTOR_CONSULTATION_ENABLED && currentPage === 'home' && showCampDoctorConsultation ? (
+      {CAMP_DOCTOR_CONSULTATION_ENABLED && currentPage === 'home' && getUpcomingCampAppointment(campAppointments) ? (
+        <ConsultationReminderBar
+          appointment={getUpcomingCampAppointment(campAppointments)}
+          onOpen={() => setCurrentPage('all-appointments')}
+        />
+      ) : null}
+      {CAMP_DOCTOR_CONSULTATION_ENABLED && currentPage === 'home' && showCampDoctorConsultation && !getUpcomingCampAppointment(campAppointments) ? (
         <CampDoctorConsultationPage
           engagementId={doctorConsultationContext?.engagementId}
           engagementCode={doctorConsultationContext?.engagementCode}
@@ -1945,7 +1961,17 @@ function App() {
           onOpenFitprintGapQuestionnaire={handleOpenFitprintGapQuestionnaire}
           onNavigateToBloodMarkers={() => {
             console.log('Navigate to Blood Markers');
+            setBloodMarkersInitialFilter(null);
+            setBloodMarkersReturnPage('home');
             setCurrentPage('blood-markers');
+          }}
+          onNavigateToCancerMarkers={() => {
+            setBloodMarkersInitialFilter('Cancer');
+            setBloodMarkersReturnPage('home');
+            setCurrentPage('blood-markers');
+          }}
+          onNavigateToAllergySensitivity={() => {
+            setCurrentPage('allergy-sensitivity');
           }}
           onNavigateToBloodMarkerDetail={handleNavigateToBloodMarkerDetail}
           onNavigateToPackages={() => {
@@ -2110,13 +2136,12 @@ function App() {
             console.log('Navigate to Packages');
             setCurrentPage('packages');
           }}
-          onOpenDoctorProfile={() => {
-            console.log('Navigate to Doctor Expert Details');
+          onOpenDoctorProfile={(expert) => {
+            console.log('Navigate to Expert Details');
+            const kind = typeof expert === 'string' ? expert : (expert?.kind || 'doctor');
+            setSelectedExpertKind(kind);
+            setSelectedExpert(typeof expert === 'string' ? null : (expert || null));
             setCurrentPage('expert-details-doctor');
-          }}
-          onOpenNutritionistProfile={() => {
-            console.log('Navigate to Nutritionist Expert Details');
-            setCurrentPage('expert-details-nutritionist');
           }}
           onOpenIntegratedProfile={() => {
             console.log('Navigate to Integrated Health Program');
@@ -2135,22 +2160,29 @@ function App() {
       )}
 
       {currentPage === 'expert-details-doctor' && (
-        <ExpertDetailsPage
-          expertType="doctor"
+        <DoctorProfilePage
+          profileKind={selectedExpertKind}
+          expert={selectedExpert}
+          bookingUserId={selectedAccountId ?? currentUserId}
           onBack={() => {
             console.log('Back to Doctors');
             setCurrentPage('doctors');
           }}
+          onGoHome={() => setCurrentPage('home')}
+          onViewAppointments={() => setCurrentPage('all-appointments')}
         />
       )}
 
       {currentPage === 'expert-details-nutritionist' && (
-        <ExpertDetailsPage
-          expertType="nutritionist"
+        <DoctorProfilePage
+          profileKind="nutritionist"
+          bookingUserId={selectedAccountId ?? currentUserId}
           onBack={() => {
             console.log('Back to Doctors');
             setCurrentPage('doctors');
           }}
+          onGoHome={() => setCurrentPage('home')}
+          onViewAppointments={() => setCurrentPage('all-appointments')}
         />
       )}
 
@@ -2190,7 +2222,25 @@ function App() {
       {currentPage === 'blood-markers' && (
         <BloodMarkersPage
           {...bloodMarkersPageDetailProps}
+          onBack={() => {
+            if (bloodMarkersReturnPage === 'allergy-sensitivity') {
+              setBloodMarkersReturnPage('home');
+              setCurrentPage('allergy-sensitivity');
+              return;
+            }
+            navigateToHome();
+          }}
+        />
+      )}
+
+      {currentPage === 'allergy-sensitivity' && (
+        <AllergySensitivityPage
           onBack={navigateToHome}
+          onSeeMore={() => {
+            setBloodMarkersInitialFilter('Allergies');
+            setBloodMarkersReturnPage('allergy-sensitivity');
+            setCurrentPage('blood-markers');
+          }}
         />
       )}
 
@@ -2382,6 +2432,12 @@ function App() {
             console.log('Navigate to Reports');
             setCurrentPage('reports');
           }}
+          onOpenHealthAssessment={() => {
+            setIsB2bQuestionnaireFlow(false);
+            setHealthAssessmentBackPage('profile');
+            setCurrentPage('health-assessment');
+            initializeQuestionnaire({ excludeVitals: false });
+          }}
           onOpenCustomerSupport={() => {
             console.log('Navigate to Customer Support');
             setCurrentPage('customer-support');
@@ -2455,9 +2511,39 @@ function App() {
       {currentPage === 'all-appointments' && (
         <AllAppointmentsPage
           appointments={campAppointments}
+          onOpenAppointment={(appointment) => {
+            const expertId = Number(appointment?.expertId ?? appointment?.expert_id);
+            setSelectedAppointment(appointment ? {
+              ...appointment,
+              expertId: Number.isFinite(expertId) && expertId > 0 ? expertId : (appointment.expertId ?? null),
+              expert_id: Number.isFinite(expertId) && expertId > 0 ? expertId : (appointment.expert_id ?? null),
+            } : null);
+            setCurrentPage('appointment-details');
+          }}
           onBack={() => {
             console.log('Back to Profile');
             setCurrentPage('profile');
+          }}
+        />
+      )}
+
+      {currentPage === 'appointment-details' && (
+        <AppointmentDetailsPage
+          key={selectedAppointment?.id || selectedAppointment?.consultationId || 'appointment-details'}
+          appointment={selectedAppointment}
+          onBack={() => {
+            setCurrentPage('all-appointments');
+          }}
+          onRescheduled={(_result, nextSlot) => {
+            if (selectedAppointment && nextSlot) {
+              setSelectedAppointment({
+                ...selectedAppointment,
+                apiDate: nextSlot.date || selectedAppointment.apiDate,
+                apiSlot: nextSlot.slot || selectedAppointment.apiSlot,
+                cabin: nextSlot.cabin ?? selectedAppointment.cabin,
+              });
+            }
+            setCurrentPage('all-appointments');
           }}
         />
       )}

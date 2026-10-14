@@ -24,11 +24,11 @@ export const ANTHRO_COLUMN_MAX = 'lg:max-w-[560px] xl:max-w-[680px]'
 export const APP_COLUMN_CLASS = `mx-auto h-full w-full ${APP_COLUMN_MAX}`
 
 export const MCQ_SHELL_CLASS =
-  'relative mx-auto flex h-full min-h-0 w-full flex-col pb-[72px]'
+  'relative mx-auto flex h-full min-h-0 w-full flex-col pb-[108px]'
 
 /** Anthropometry fills the column and grows on large screens. */
 export const ANTHRO_SHELL_CLASS =
-  'relative mx-auto flex h-full min-h-0 w-full flex-col pb-[72px]'
+  'relative mx-auto flex h-full min-h-0 w-full flex-col pb-[108px]'
 
 export const ANTHRO_COLUMN_CLASS = `mx-auto h-full w-full ${ANTHRO_COLUMN_MAX}`
 

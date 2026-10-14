@@ -217,6 +217,36 @@ export const unlinkMyProfile = (payload = {}) => {
   return authorizedUsersRequest('/users/me/unlink', 'POST', safePayload);
 };
 
+/** Booked consultations for the signed-in user. GET /users/me/consultations */
+export const getMyConsultations = async () => {
+  const limit = 20;
+  const first = await authorizedRequest('/users/me/consultations', {
+    method: 'GET',
+    query: { page: 1, limit },
+  });
+  const data = Array.isArray(first?.data) ? [...first.data] : [];
+  const total = Number(first?.meta?.total);
+  const pageSize = Number(first?.meta?.limit) || limit;
+
+  if (Number.isFinite(total) && data.length < total) {
+    const pages = Math.min(Math.ceil(total / pageSize), 10);
+    for (let page = 2; page <= pages; page += 1) {
+      const next = await authorizedRequest('/users/me/consultations', {
+        method: 'GET',
+        query: { page, limit: pageSize },
+      });
+      if (Array.isArray(next?.data)) {
+        data.push(...next.data);
+      }
+    }
+  }
+
+  return {
+    data,
+    meta: first?.meta ?? null,
+  };
+};
+
 /** Upcoming health camp / collection slot; includes B2B vs B2C on engagement. */
 export const getMyUpcomingSlot = async () => {
   const parsedBody = await authorizedUsersRequest('/users/me/upcoming-slot', 'GET');

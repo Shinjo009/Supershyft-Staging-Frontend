@@ -1,7 +1,5 @@
-import { getEngagementConsultation } from '../services/engagementsService';
-import { peekMyAssessmentsRowsCached } from '../services/reportService';
+import { getMyConsultations } from '../services/usersService';
 import { formatApiSlotToDisplay } from './campDoctorOfflineSchedule';
-import { resolveActiveEngagementIdFromAssessments } from './campDoctorConsultationEligibility';
 
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -17,6 +15,18 @@ const EXPERT_META = {
     category: 'nutritionist',
     accent: 'teal',
     subtitle: 'Clinical Nutritionist',
+  },
+  ayurveda: {
+    title: 'Ayurveda Consultation',
+    category: 'ayurveda',
+    accent: 'teal',
+    subtitle: 'Ayurvedic Practitioner',
+  },
+  ayurvedic: {
+    title: 'Ayurveda Consultation',
+    category: 'ayurveda',
+    accent: 'teal',
+    subtitle: 'Ayurvedic Practitioner',
   },
 };
 
@@ -96,6 +106,10 @@ const resolveExpertName = (item, expertType) => {
     return 'Clinical Nutritionist';
   }
 
+  if (expertType === 'ayurveda' || expertType === 'ayurvedic') {
+    return 'Ayurvedic Practitioner';
+  }
+
   return 'Doctor Consultation';
 };
 
@@ -171,16 +185,89 @@ const resolveCompletedBadge = (item) => {
   return null;
 };
 
+const DEFAULT_SLOT_DURATION_MINUTES = 30;
+
+const parseConsultationStartMs = (dateStr, slotStr) => {
+  const dateMatch = String(dateStr || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const slotMatch = String(slotStr || '').trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!dateMatch || !slotMatch) {
+    return null;
+  }
+  const year = Number(dateMatch[1]);
+  const month = Number(dateMatch[2]);
+  const day = Number(dateMatch[3]);
+  const hour = Number(slotMatch[1]);
+  const minute = Number(slotMatch[2]);
+  if (![year, month, day, hour, minute].every((value) => Number.isFinite(value))) {
+    return null;
+  }
+  const start = new Date(year, month - 1, day, hour, minute, 0, 0);
+  const ms = start.getTime();
+  return Number.isFinite(ms) ? ms : null;
+};
+
+const isConsultationSlotPast = (item, nowMs = Date.now()) => {
+  const startMs = parseConsultationStartMs(item?.date, item?.slot);
+  if (startMs === null) {
+    return false;
+  }
+  const durationMinutes = Number(item?.duration_minutes ?? item?.session_duration_mins);
+  const durationMs = (
+    Number.isFinite(durationMinutes) && durationMinutes > 0
+      ? durationMinutes
+      : DEFAULT_SLOT_DURATION_MINUTES
+  ) * 60 * 1000;
+  return startMs + durationMs <= nowMs;
+};
+
 const resolveConsultationStatus = (item) => {
-  if (item?.done === true) {
+  const engagementStatus = String(item?.engagement_status || '').trim().toLowerCase();
+  // Unpaid / incomplete checkout — never show as a booked appointment.
+  if (engagementStatus === 'draft') {
+    return null;
+  }
+
+  const status = String(item?.status || '').trim().toLowerCase();
+  if (item?.done === true || status === 'completed' || status === 'done') {
     return 'completed';
   }
-
-  if (item?.date && item?.slot) {
-    return 'scheduled';
+  if (status === 'cancelled' || status === 'canceled' || engagementStatus === 'cancelled' || engagementStatus === 'canceled') {
+    return 'cancelled';
   }
 
+  const hasSlot = Boolean(item?.date && item?.slot);
+  const isPast = hasSlot && isConsultationSlotPast(item);
+
+  if (isPast) {
+    // Past visits already marked done/completed return above.
+    // Past slot with notes/attachments → completed; otherwise → cancelled.
+    if (item?.consultation_summary || (Array.isArray(item?.attachments) && item.attachments.length > 0)) {
+      return 'completed';
+    }
+    return 'cancelled';
+  }
+
+  if (status === 'scheduled' || engagementStatus === 'scheduled' || hasSlot) {
+    return 'scheduled';
+  }
   return null;
+};
+
+const resolveConsultationMode = (mode) => {
+  const value = String(mode || '').trim().toLowerCase();
+  if (!value) {
+    return null;
+  }
+  if (value === 'online' || value === 'video' || value === 'call') {
+    return { mode: 'Video Consultation', modeIcon: 'video' };
+  }
+  if (value === 'home' || value === 'home_collection') {
+    return { mode: 'Home Collection', modeIcon: 'home' };
+  }
+  if (value === 'clinic' || value === 'in_clinic' || value === 'in-clinic') {
+    return { mode: 'In Clinic', modeIcon: 'cabin' };
+  }
+  return { mode: value.replace(/[_-]+/g, ' '), modeIcon: 'video' };
 };
 
 export const mapMyConsultationsToAppointments = (myConsultations = []) => {
@@ -199,19 +286,37 @@ export const mapMyConsultationsToAppointments = (myConsultations = []) => {
         subtitle: null,
       };
 
+      const consultationMode = resolveConsultationMode(item.consultation_mode);
+      const resolvedExpertId = (() => {
+        const raw = item.expert_id ?? item.expertId;
+        const id = Number(raw);
+        return Number.isFinite(id) && id > 0 ? id : null;
+      })();
       const appointment = {
         id: `consultation-${item.consultation_id}`,
         consultationId: item.consultation_id,
+        consultation_id: item.consultation_id,
+        engagementId: item.engagement_id ?? item.engagementId ?? null,
+        engagement_id: item.engagement_id ?? item.engagementId ?? null,
+        expertId: resolvedExpertId,
+        expert_id: resolvedExpertId,
         status,
         category: meta.category,
         accent: meta.accent,
         expertType,
         expertName: resolveExpertName(item, expertType),
+        personRole: item.expert_specialization || meta.subtitle || null,
+        photo: item.expert_photo || null,
+        ratingLabel: item.expert_rating
+          ? `${item.expert_rating}${item.expert_review_count ? ` (${item.expert_review_count} reviews)` : ''}`
+          : null,
         whenLabel: formatWhenLabel(item.date, item.slot),
         notesWhenLabel: formatNotesWhenLabel(item.date, item.slot),
         title: meta.title,
         subtitle: meta.subtitle,
+        cabin: item.cabin ?? null,
         cabinLabel: formatCabinDisplay(item.cabin),
+        ...(consultationMode || {}),
         apiDate: item.date,
         apiSlot: item.slot,
         consultationSummary: item.consultation_summary || null,
@@ -224,6 +329,10 @@ export const mapMyConsultationsToAppointments = (myConsultations = []) => {
         if (statusBadge) {
           appointment.statusBadge = statusBadge;
         }
+      }
+
+      if (status === 'cancelled' && !appointment.cancelReason && isConsultationSlotPast(item)) {
+        appointment.cancelReason = 'Missed';
       }
 
       return appointment;
@@ -241,14 +350,12 @@ export const mapMyConsultationsToAppointments = (myConsultations = []) => {
     });
 };
 
-export const fetchMyConsultationAppointments = async ({ ttlMs = 45000 } = {}) => {
-  const rows = await peekMyAssessmentsRowsCached(ttlMs).catch(() => []);
-  const engagementId = resolveActiveEngagementIdFromAssessments(rows);
+export const appointmentsFromConsultationRows = (rows) => {
+  // Expert name/photo come from GET /experts/{expert_id} only on Appointment Details.
+  return mapMyConsultationsToAppointments(Array.isArray(rows) ? rows : []);
+};
 
-  if (!engagementId) {
-    return [];
-  }
-
-  const consultation = await getEngagementConsultation(engagementId);
-  return mapMyConsultationsToAppointments(consultation?.my_consultations);
+export const fetchMyConsultationAppointments = async () => {
+  const response = await getMyConsultations();
+  return appointmentsFromConsultationRows(response?.data);
 };

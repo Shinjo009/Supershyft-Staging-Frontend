@@ -33,8 +33,13 @@ import diabetesIcon from '../../images/Diabetes.svg';
 import inflammationIcon from '../../images/Inflammation.svg';
 import sleepIcon from '../../images/Sleep.svg';
 import hormonesIcon from '../../images/Hormones.svg';
+import allergyFoodIcon from '../../images/allergy-icon-food.svg';
+import allergyEnvironmentIcon from '../../images/allergy-icon-environment.svg';
+import allergyWorkplaceIcon from '../../images/allergy-icon-workplace.svg';
+import CancerMarkersView from './CancerMarkersView';
+import { buildReportScreenMarkers, classifyReportGroupName, isCancerMarkerTest } from '../../utils/reportScreenMarkers';
 
-const FILTERS = ['Critical', 'Marginal', 'Optimal'];
+const FILTERS = ['Optimal', 'Marginal', 'Critical', 'Allergies', 'Cancer'];
 
 /** Set to `true` to show history timelines on blood marker stack cards. */
 const BLOOD_MARKER_CARD_HISTORY_ENABLED = true;
@@ -43,6 +48,7 @@ const EMPTY_FILTER_MESSAGE = {
   Critical: 'No Critical Markers Detected',
   Marginal: 'No Marginal Markers Detected',
   Optimal: 'No Optimal Markers Detected',
+  Allergies: 'No Allergy Markers Detected',
 };
 
 /** Same limit as homepage Blood Markers list (`RiskAnalysisSection`). */
@@ -102,6 +108,10 @@ const RISK_META = {
   high: {
     label: 'HIGH RISK',
     color: '#E95D5C',
+  },
+  pending: {
+    label: 'PENDING',
+    color: '#9A9A9A',
   },
 };
 
@@ -166,6 +176,17 @@ const METER_SEGMENTS = {
     { background: 'rgba(239, 68, 68, 0.75)', boxShadow: '0 0 12px 0 rgba(239, 68, 68, 0.40)' },
     { background: '#EF4444', boxShadow: '0 0 12px 0 rgba(239, 68, 68, 0.40)' },
     { background: '#EF4444', boxShadow: '0 0 12px 0 rgba(239, 68, 68, 0.40)' },
+  ],
+  pending: [
+    { background: 'rgba(154, 154, 154, 0.35)' },
+    { background: 'rgba(154, 154, 154, 0.28)' },
+    { background: 'rgba(154, 154, 154, 0.22)' },
+    { background: 'rgba(154, 154, 154, 0.16)' },
+    { background: 'rgba(154, 154, 154, 0.12)' },
+    { background: 'rgba(154, 154, 154, 0.10)' },
+    { background: 'rgba(154, 154, 154, 0.08)' },
+    { background: 'rgba(154, 154, 154, 0.06)' },
+    { background: 'rgba(154, 154, 154, 0.05)' },
   ],
 };
 
@@ -261,8 +282,23 @@ const resolveCardHistoryPoints = (card, trendsByParameterKey = {}) => {
 
 const getOrganIcon = (organName) => {
   const key = String(organName || '').trim().toLowerCase();
+  if (key.includes('allerg')) {
+    if (/grass|mould|mold|yeast|weed|tree/.test(key)) {
+      return allergyEnvironmentIcon;
+    }
+    if (key.includes('occupational') || key.includes('work')) {
+      return allergyWorkplaceIcon;
+    }
+    return allergyFoodIcon;
+  }
   if (key.includes('hemogram')) {
     return haematologyIcon;
+  }
+  if (key === 'food') {
+    return allergyFoodIcon;
+  }
+  if (key === 'environment') {
+    return allergyEnvironmentIcon;
   }
   return ORGAN_ICON_BY_NAME[key] || liverIcon;
 };
@@ -521,13 +557,14 @@ const getRepresentativeTest = (tests, desiredType) => {
 };
 
 const buildSectionsFromApi = (payloadOrGroups) => {
-  const rawGroups = extractBloodParameterGroupsArray(payloadOrGroups);
+  const rawGroups = extractBloodParameterGroupsArray(payloadOrGroups)
+    .filter((group) => !classifyReportGroupName(pickBloodParameterGroupName(group)));
 
   return rawGroups
     .map((group, groupIndex) => {
       const organ = toOrganName(pickBloodParameterGroupName(group));
       const key = organ.toLowerCase();
-      const tests = getBloodParameterTestsFromGroup(group);
+      const tests = getBloodParameterTestsFromGroup(group).filter((test) => !isCancerMarkerTest(test));
 
       const mappedTests = tests.map((test, index) => {
         const n = normalizeBloodParameterTestRow(test);
@@ -676,6 +713,10 @@ const DotBullet = () => (
 const RiskTrendIcon = ({ type, color: colorOverride }) => {
   const color = colorOverride || getRiskColorByType(type);
 
+  if (type === 'pending') {
+    return null;
+  }
+
   if (type === 'low') {
     return (
       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="7" viewBox="0 0 12 7" fill="none" aria-hidden="true">
@@ -691,7 +732,50 @@ const RiskTrendIcon = ({ type, color: colorOverride }) => {
   );
 };
 
-/** Figma history timeline — shown when prior readings exist for a marker. */
+const HISTORY_CAPSULE_TONES = {
+  low: {
+    value: '#4ADE80',
+    valueShadow: '0 0 4px rgba(74, 222, 128, 0.25)',
+    dim: '#66FF82',
+    solid: '#66FF82',
+    shadow: '0 0 12px 0 rgba(102, 255, 130, 0.4)',
+  },
+  moderate: {
+    value: '#F7EC33',
+    valueShadow: '0 0 4px rgba(247, 236, 51, 0.25)',
+    dim: '#DAC15A',
+    solid: '#F7EC33',
+    shadow: '0 0 12px 0 rgba(218, 193, 90, 0.4)',
+  },
+  increased: {
+    value: '#EE8B48',
+    valueShadow: '0 0 4px rgba(238, 139, 72, 0.25)',
+    dim: '#F79D1F',
+    solid: '#F79D1F',
+    shadow: '0 0 12px 0 rgba(247, 157, 31, 0.4)',
+  },
+  high: {
+    value: '#E95D5C',
+    valueShadow: '0 0 4px rgba(233, 93, 92, 0.25)',
+    dim: '#FF6B6A',
+    solid: '#FF6B6A',
+    shadow: '0 0 12px 0 rgba(233, 93, 92, 0.4)',
+  },
+};
+
+const historyCapsuleTone = (riskType) => (
+  HISTORY_CAPSULE_TONES[riskType]
+  || HISTORY_CAPSULE_TONES[getDisplayRiskType(riskType)]
+  || HISTORY_CAPSULE_TONES.low
+);
+
+const capsuleIsSolid = (count, index) => {
+  if (count === 9) return index >= 2 && index <= 6;
+  if (count === 4) return index === 1 || index === 2;
+  return index % 3 === 1;
+};
+
+/** Colored values over a dash track, dates underneath (1, 2, or 3 readings). */
 const BloodMarkerHistoryTimeline = ({
   points = [],
   normalMin = null,
@@ -702,50 +786,62 @@ const BloodMarkerHistoryTimeline = ({
     return null;
   }
 
-  return (
-    <div className="blood-markers-page__history-timeline" aria-label="Previous results">
-      {points.map((point, index) => {
-        const isLatest = index === points.length - 1;
-        const pointRisk = (
-          Number.isFinite(Number(normalMin)) && Number.isFinite(Number(normalMax))
-            ? getRiskTypeFromBounds(point.value, normalMin, normalMax)
-            : (isLatest ? currentRiskType : 'low')
-        );
-        const color = isLatest
-          ? getRiskColorByType(currentRiskType)
-          : getHistoryPointColor(pointRisk);
-        const dateLabel = formatBloodMarkerHistoryDate(point.date) || (isLatest ? 'Now' : '—');
+  const readingCount = points.length;
+  const dashesPerPoint = readingCount <= 1 ? 9 : readingCount === 2 ? 4 : 3;
+  const resolved = points.map((point, index) => {
+    const isLatest = index === points.length - 1;
+    const pointRisk = (
+      Number.isFinite(Number(normalMin)) && Number.isFinite(Number(normalMax))
+        ? getRiskTypeFromBounds(point.value, normalMin, normalMax)
+        : currentRiskType
+    );
+    const tone = historyCapsuleTone(pointRisk);
+    return {
+      key: `history-${index}-${point.value}-${point.date || index}`,
+      value: formatValue(point.value),
+      date: formatBloodMarkerHistoryDate(point.date) || (isLatest ? 'Now' : '—'),
+      isLatest,
+      tone,
+    };
+  });
 
-        return (
-          <React.Fragment key={`history-${index}-${point.value}-${point.date || index}`}>
-            {index > 0 ? (
-              <span className="blood-markers-page__history-connector" aria-hidden="true" />
-            ) : null}
-            <div
-              className={`blood-markers-page__history-point${isLatest ? ' blood-markers-page__history-point--latest' : ''}`}
-            >
-              <span
-                className="blood-markers-page__history-pill"
-                style={{
-                  color,
-                  borderColor: color,
-                  background: `${color}1A`,
-                  boxShadow: isLatest
-                    ? `0 0 10px 0 ${color}40, inset 0 0 10px 0 ${color}33`
-                    : `inset 0 0 10px 0 ${color}33`,
-                }}
-              >
-                {formatValue(point.value)}
-              </span>
-              <span
-                className={`blood-markers-page__history-date${isLatest ? ' blood-markers-page__history-date--latest' : ''}`}
-              >
-                {dateLabel}
-              </span>
-            </div>
-          </React.Fragment>
-        );
-      })}
+  return (
+    <div
+      className="blood-markers-page__history-bars"
+      aria-label="Previous results"
+    >
+      {resolved.map((point) => (
+        <div key={point.key} className="blood-markers-page__history-bars-col">
+          <span
+            className={`blood-markers-page__history-bars-value${point.isLatest ? ' is-latest' : ''}`}
+            style={{
+              color: point.tone.value,
+              textShadow: point.isLatest ? point.tone.valueShadow : undefined,
+            }}
+          >
+            {point.value}
+          </span>
+          <span className="blood-markers-page__history-bars-track" aria-hidden="true">
+            {Array.from({ length: dashesPerPoint }, (_, dashIndex) => {
+              const solid = capsuleIsSolid(dashesPerPoint, dashIndex);
+              return (
+                <span
+                  key={`${point.key}-dash-${dashIndex}`}
+                  className="blood-markers-page__history-bars-dash"
+                  style={{
+                    background: solid ? point.tone.solid : point.tone.dim,
+                    opacity: solid ? 1 : 0.5,
+                    boxShadow: point.tone.shadow,
+                  }}
+                />
+              );
+            })}
+          </span>
+          <span className={`blood-markers-page__history-bars-date${point.isLatest ? ' is-latest' : ''}`}>
+            {point.date}
+          </span>
+        </div>
+      ))}
     </div>
   );
 };
@@ -762,6 +858,7 @@ const markerCards = (section) => {
       parameter_key: test.parameter_key,
       diagnosticTestId: test.diagnosticTestId,
       riskType,
+      allergy: Boolean(test.allergy),
       normalMin: test.normalMin,
       normalMax: test.normalMax,
       rawValue: test.rawValue,
@@ -771,6 +868,11 @@ const markerCards = (section) => {
       effects: test.effects,
     });
   };
+
+  if (section.category === 'Allergies') {
+    (section.tests || []).forEach((test, index) => pushTestCard(test, test.riskType || 'low', index));
+    return cards;
+  }
 
   if (section.category === 'Critical') {
     (section.highTests || []).forEach((test, index) => pushTestCard(test, 'high', index));
@@ -864,29 +966,6 @@ const flattenCardsForListView = (cards) => {
   return rows;
 };
 
-const VIEW_ALL_STATUS_STYLE = {
-  low: {
-    bar: '#90DF9E',
-    glow: '0 0 10px rgba(144, 223, 158, 0.20)',
-    text: '#4ADE80',
-  },
-  moderate: {
-    bar: '#DAC15A',
-    glow: '0 0 10px rgba(218, 193, 90, 0.20)',
-    text: '#DAC15A',
-  },
-  increased: {
-    bar: '#DAC15A',
-    glow: '0 0 10px rgba(218, 193, 90, 0.20)',
-    text: '#DAC15A',
-  },
-  high: {
-    bar: '#EF4444',
-    glow: '0 0 10px rgba(233, 93, 92, 0.20)',
-    text: '#EF4444',
-  },
-};
-
 const ViewAllOverlayCloseIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
     <rect width="32" height="32" rx="16" fill="#063533" />
@@ -894,7 +973,14 @@ const ViewAllOverlayCloseIcon = () => (
   </svg>
 );
 
-const BloodMarkersViewAllPopup = ({ rows, section, organIcon, onClose, onOpenDetail }) => {
+const BloodMarkersViewAllPopup = ({
+  rows,
+  section,
+  organIcon,
+  trendsByParameterKey = {},
+  onClose,
+  onOpenDetail,
+}) => {
   useEffect(() => {
     const page = document.querySelector('.blood-markers-page');
     const previousBodyOverflow = document.body.style.overflow;
@@ -951,54 +1037,34 @@ const BloodMarkersViewAllPopup = ({ rows, section, organIcon, onClose, onOpenDet
 
         <div className="blood-markers-page__view-all-list">
           {rows.map((row, index) => {
-            const displayRisk = getDisplayRiskType(row.riskType);
-            const riskMeta = RISK_META[displayRisk] || RISK_META.low;
-            const statusStyle = VIEW_ALL_STATUS_STYLE[row.riskType]
-              || VIEW_ALL_STATUS_STYLE[displayRisk]
-              || VIEW_ALL_STATUS_STYLE.low;
             const markerName = String(row.marker || '').trim();
-            const valueText = String(row.value || '').trim();
-            const unitText = String(row.unit || '').trim();
+            const historyPoints = BLOOD_MARKER_CARD_HISTORY_ENABLED
+              ? resolveCardHistoryPoints(row, trendsByParameterKey)
+              : [];
 
             return (
               <React.Fragment key={row.id}>
                 {index > 0 ? <div className="blood-markers-page__view-all-divider" aria-hidden="true" /> : null}
                 <button
                   type="button"
-                  className="blood-markers-page__view-all-row"
+                  className="blood-markers-page__view-all-row blood-markers-page__view-all-row--bars"
                   onClick={() => {
                     onClose();
                     onOpenDetail({ ...row, organ: section.organ, parameters: section.parameters });
                   }}
                 >
-                  <div className="blood-markers-page__view-all-row-main">
-                    <span
-                      className="blood-markers-page__view-all-status-bar"
-                      style={{ background: statusStyle.bar, boxShadow: statusStyle.glow }}
-                      aria-hidden="true"
-                    />
-                    <div className="blood-markers-page__view-all-row-copy">
-                      {markerName ? (
-                        <span className="blood-markers-page__view-all-marker">{markerName}</span>
-                      ) : null}
-                      {valueText || unitText ? (
-                        <div className="blood-markers-page__view-all-value-row">
-                          {valueText ? (
-                            <span className="blood-markers-page__view-all-value">{valueText}</span>
-                          ) : null}
-                          {unitText ? (
-                            <span className="blood-markers-page__view-all-unit">{unitText}</span>
-                          ) : null}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                  <span className="blood-markers-page__view-all-risk-pill">
-                    <span className="blood-markers-page__view-all-risk-text" style={{ color: statusStyle.text }}>
-                      {riskMeta.label}
-                    </span>
-                    <RiskTrendIcon type={row.riskType} color={statusStyle.text} />
-                  </span>
+                  {markerName ? (
+                    <span className="blood-markers-page__view-all-marker">{markerName}</span>
+                  ) : null}
+                  <BloodMarkerHistoryTimeline
+                    points={historyPoints.length ? historyPoints : [{
+                      value: row.rawValue ?? row.value,
+                      date: '',
+                    }]}
+                    normalMin={row.normalMin}
+                    normalMax={row.normalMax}
+                    currentRiskType={row.riskType}
+                  />
                 </button>
               </React.Fragment>
             );
@@ -2169,7 +2235,7 @@ const BloodMarkerStackSection = ({ section, onOpenDetail, trendsByParameterKey =
                 : 'hidden';
 
           const riskMeta = RISK_META[getDisplayRiskType(card.riskType)] || RISK_META.low;
-          const segments = METER_SEGMENTS[card.riskType];
+          const segments = METER_SEGMENTS[card.riskType] || METER_SEGMENTS.pending;
           const isAggregateOptimalCard = card.cardRole === 'optimal-aggregate';
           const isSingleOptimalPeerCard = card.riskType === 'low' && !isAggregateOptimalCard;
           const isOptimalPeerCard = isSingleOptimalPeerCard || isAggregateOptimalCard;
@@ -2196,7 +2262,7 @@ const BloodMarkerStackSection = ({ section, onOpenDetail, trendsByParameterKey =
                   frontStackCardRef.current = node;
                 }
               }}
-              className={`blood-markers-page__stack-card blood-markers-page__stack-card--${role} blood-markers-page__stack-card--theme-${card.riskType}${isOptimalPeerCard ? ' blood-markers-page__stack-card--optimal-peer' : ''}${isAggregateOptimalCard ? ' blood-markers-page__stack-card--optimal-aggregate' : ''}${isAggregateOptimalCard && isLowCardExpanded && role === 'front' ? ' blood-markers-page__stack-card--optimal-expanded' : ''}${showHistoryTimeline ? ' blood-markers-page__stack-card--history' : ''}`}
+              className={`blood-markers-page__stack-card blood-markers-page__stack-card--${role} blood-markers-page__stack-card--theme-${card.riskType}${isOptimalPeerCard ? ' blood-markers-page__stack-card--optimal-peer' : ''}${isAggregateOptimalCard ? ' blood-markers-page__stack-card--optimal-aggregate' : ''}${isAggregateOptimalCard && isLowCardExpanded && role === 'front' ? ' blood-markers-page__stack-card--optimal-expanded' : ''}${showHistoryTimeline ? ' blood-markers-page__stack-card--history' : ''}${card.allergy ? ' blood-markers-page__stack-card--allergy' : ''}`}
               onClick={() => {
                 if (isAggregateOptimalCard) {
                   setExpandedLowCardIds((prev) => ({ ...prev, [card.id]: !prev[card.id] }));
@@ -2271,16 +2337,18 @@ const BloodMarkerStackSection = ({ section, onOpenDetail, trendsByParameterKey =
                         >
                           {truncateBloodMarkersStackCardName(card.marker)}
                         </span>
-                        <div className="blood-markers-page__marker-value-row">
-                          <span className="blood-markers-page__marker-value">{card.value}</span>
-                          <span className="blood-markers-page__marker-unit">{card.unit}</span>
-                        </div>
+                        {card.value || card.unit ? (
+                          <div className="blood-markers-page__marker-value-row">
+                            <span className="blood-markers-page__marker-value">{card.value}</span>
+                            <span className="blood-markers-page__marker-unit">{card.unit}</span>
+                          </div>
+                        ) : null}
                       </>
                     )}
                   </div>
                 </div>
 
-                {!isOptimalPeerCard || showHistoryTimeline ? (
+                {!isOptimalPeerCard || showHistoryTimeline || card.allergy ? (
                   <span className="blood-markers-page__risk-chip">
                     <span className="blood-markers-page__risk-chip-text" style={{ color: riskMeta.color }}>{riskMeta.label}</span>
                     <RiskTrendIcon type={card.riskType} />
@@ -2315,7 +2383,7 @@ const BloodMarkerStackSection = ({ section, onOpenDetail, trendsByParameterKey =
                     >
                       <DownChevron />
                     </span>
-                  ) : (
+                  ) : card.allergy ? null : (
                     <span className="blood-markers-page__card-chevron" aria-hidden="true">
                       <CardChevron />
                     </span>
@@ -2350,6 +2418,7 @@ const BloodMarkerStackSection = ({ section, onOpenDetail, trendsByParameterKey =
           rows={listRows}
           section={section}
           organIcon={organIcon}
+          trendsByParameterKey={trendsByParameterKey}
           onClose={() => setIsViewAllOpen(false)}
           onOpenDetail={onOpenDetail}
         />
@@ -2358,14 +2427,31 @@ const BloodMarkerStackSection = ({ section, onOpenDetail, trendsByParameterKey =
   );
 };
 
-const BloodMarkersPage = ({ onBack, initialDetailMarker = null, onInitialDetailConsumed }) => {
-  const [activeFilter, setActiveFilter] = useState('Optimal');
+const BloodMarkersPage = ({
+  onBack,
+  initialDetailMarker = null,
+  onInitialDetailConsumed,
+  initialFilter = null,
+}) => {
+  const [activeFilter, setActiveFilter] = useState(
+    initialFilter === 'Cancer' || initialFilter === 'Allergies' ? initialFilter : 'Optimal',
+  );
+  const accentFilterRef = useRef(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [apiSections, setApiSections] = useState([]);
+  const [reportCancerGroups, setReportCancerGroups] = useState(null);
+  const [reportAllergySections, setReportAllergySections] = useState(null);
   const [hasLoadedReport, setHasLoadedReport] = useState(false);
   const [trendsByParameterKey, setTrendsByParameterKey] = useState({});
+
+  useLayoutEffect(() => {
+    if (activeFilter !== 'Cancer' && activeFilter !== 'Allergies') {
+      return;
+    }
+    accentFilterRef.current?.scrollIntoView({ inline: 'end', block: 'nearest' });
+  }, [activeFilter]);
 
   useEffect(() => {
     if (!initialDetailMarker) {
@@ -2401,12 +2487,16 @@ const BloodMarkersPage = ({ onBack, initialDetailMarker = null, onInitialDetailC
             ? buildBloodParametersGroupsForAssessment(assessmentId, response)
             : normalizeBloodParametersReportPayload(response);
           setApiSections(buildSectionsFromApi(groups));
+          const reportMarkers = buildReportScreenMarkers(response, assessmentId);
+          setReportCancerGroups(reportMarkers.cancerCards);
+          setReportAllergySections(reportMarkers.hasAllergy ? reportMarkers.allergySections : null);
           setHasLoadedReport(true);
         }
       } catch (error) {
         console.error('Failed to load blood marker report:', error);
         if (isActive) {
           setApiSections([]);
+          setReportCancerGroups([]);
           setHasLoadedReport(true);
         }
       }
@@ -2490,8 +2580,11 @@ const BloodMarkersPage = ({ onBack, initialDetailMarker = null, onInitialDetailC
   }, [apiSections, hasLoadedReport]);
 
   const sections = useMemo(() => {
+    if (activeFilter === 'Allergies') {
+      return reportAllergySections || [];
+    }
     return apiSections.filter((section) => section.category === activeFilter);
-  }, [activeFilter, apiSections]);
+  }, [activeFilter, apiSections, reportAllergySections]);
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const filteredSections = normalizedQuery
     ? sections.filter((section) => {
@@ -2564,7 +2657,8 @@ const BloodMarkersPage = ({ onBack, initialDetailMarker = null, onInitialDetailC
             <button
               key={filter}
               type="button"
-              className={`blood-markers-page__filter-pill ${isActive ? 'blood-markers-page__filter-pill--active' : ''}`}
+              ref={isActive && (filter === 'Cancer' || filter === 'Allergies') ? accentFilterRef : undefined}
+              className={`blood-markers-page__filter-pill${filter === 'Cancer' || filter === 'Allergies' ? ' blood-markers-page__filter-pill--cancer' : ''}${isActive ? ' blood-markers-page__filter-pill--active' : ''}`}
               onClick={() => setActiveFilter(filter)}
               role="tab"
               aria-selected={isActive}
@@ -2578,7 +2672,9 @@ const BloodMarkersPage = ({ onBack, initialDetailMarker = null, onInitialDetailC
       <div
         className={`blood-markers-page__sections${showFilterEmptyState ? ' blood-markers-page__sections--empty' : ''}`}
       >
-        {showFilterEmptyState ? (
+        {activeFilter === 'Cancer' ? (
+          <CancerMarkersView query={searchQuery} groups={reportCancerGroups} />
+        ) : showFilterEmptyState ? (
           <p className="blood-markers-page__empty" role="status">
             {EMPTY_FILTER_MESSAGE[activeFilter]}
           </p>
@@ -2587,7 +2683,7 @@ const BloodMarkersPage = ({ onBack, initialDetailMarker = null, onInitialDetailC
             <BloodMarkerStackSection
               key={section.id}
               section={section}
-              onOpenDetail={setSelectedMarker}
+              onOpenDetail={section.category === 'Allergies' ? () => {} : setSelectedMarker}
               trendsByParameterKey={trendsByParameterKey}
             />
           ))

@@ -1,0 +1,254 @@
+.cancer-screening {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 16px;
+  margin-top: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.cancer-screening__header {
+  display: flex;
+  width: 100%;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cancer-screening__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cancer-screening__title {
+  margin: 0;
+  color: #fff;
+  font-family: Lato, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.cancer-screening__subtitle {
+  margin: 0;
+  color: #c4c4c4;
+  font-family: "DM Sans", sans-serif;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: normal;
+}
+
+.cancer-screening__see-more {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #999;
+  font-family: Lato, sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 16px;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.cancer-screening__card {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 24px;
+  border: 1px solid rgba(58, 183, 237, 0.3);
+  background-color: #071210;
+  background-image: linear-gradient(243.55deg, rgba(58, 183, 237, 0.1) 0%, rgba(0, 0, 0, 0.1) 100%);
+  box-shadow: 0 0 20px rgba(58, 183, 237, 0.1);
+}
+
+.cancer-screening__summary {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cancer-screening__count-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.cancer-screening__count {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.95);
+  font-family: "DM Sans", sans-serif;
+  font-size: 34px;
+  font-weight: 500;
+  line-height: 48px;
+  letter-spacing: -1.2px;
+  text-shadow: 0 2px 6px rgba(255, 255, 255, 0.1);
+}
+
+.cancer-screening__count-label {
+  margin: 4px 0 0;
+  color: #d4d4d8;
+  font-family: "DM Sans", sans-serif;
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 13.5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.cancer-screening__scale {
+  position: relative;
+  width: 154px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding-top: 10px;
+}
+
+.cancer-screening__scale-step {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  width: 16px;
+}
+
+.cancer-screening__scale-label {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 7.5px;
+  font-weight: 500;
+  line-height: normal;
+  letter-spacing: 0.75px;
+}
+
+.cancer-screening__scale-line {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.cancer-screening__scale-dot-slot {
+  display: flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+}
+
+.cancer-screening__scale-dot {
+  display: block;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.cancer-screening__divider {
+  width: 100%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.cancer-screening__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.cancer-screening__row {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 17px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.cancer-screening__row-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: #fff;
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.cancer-screening__row-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.cancer-screening__status {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  font-family: "DM Sans", sans-serif;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 15px;
+  letter-spacing: 0.5px;
+}
+
+.cancer-screening__status-dot {
+  width: 6px;
+  height: 6px;
+  margin-right: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.cancer-screening__status--attention {
+  color: rgba(251, 191, 36, 0.9);
+}
+
+.cancer-screening__status--attention .cancer-screening__status-dot {
+  background: #fbbf24;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.8);
+}
+
+.cancer-screening__status--high {
+  color: rgba(233, 93, 92, 0.9);
+}
+
+.cancer-screening__status--high .cancer-screening__status-dot {
+  background: #e95d5c;
+  box-shadow: 0 0 6px rgba(233, 93, 92, 0.8);
+}
+
+.cancer-screening__status--optimal {
+  color: rgba(144, 223, 158, 0.95);
+}
+
+.cancer-screening__status--optimal .cancer-screening__status-dot {
+  background: #90df9e;
+  box-shadow: 0 0 6px rgba(144, 223, 158, 0.8);
+}

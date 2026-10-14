@@ -385,13 +385,16 @@
   stroke: rgba(233, 93, 92, 0.2);
   stroke-width: 4;
   stroke-linecap: round;
+  transition: stroke 280ms ease;
 }
 
 .risk-analysis-wins__dial-progress {
   stroke: #e95d5c;
   stroke-width: 4;
   stroke-linecap: round;
-  transition: stroke-dashoffset 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition:
+    stroke-dashoffset 420ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    stroke 280ms ease;
 }
 
 .risk-analysis-wins__dial-score {
