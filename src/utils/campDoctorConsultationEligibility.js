@@ -1,6 +1,7 @@
 import { peekMyAssessmentsRowsCached, resolveEngagementIdFromAssessmentId } from '../services/reportService';
-import { getEngagementConsultation } from '../services/engagementsService';
+import { getEngagementByCode, getEngagementConsultation } from '../services/engagementsService';
 import { getMyUpcomingSlot } from '../services/usersService';
+import { hasEnabledOfflineConsultationDates } from './campDoctorOfflineSchedule';
 
 const extractAssessmentInstanceIdFromRow = (row) => {
   if (!row || typeof row !== 'object') {
@@ -158,10 +159,65 @@ export const resolveFirstUnfilledConsultationType = (consultation) => {
 export const isDoctorConsultationScheduleUnfilled = isConsultationScheduleUnfilled;
 
 /**
+ * Complimentary popup is only for engagements that are actively running.
+ * Any other engagement_status hides the popup for that engagement.
+ */
+export const resolveEngagementStatus = (consultation, assessmentRows = [], engagementId = null) => {
+  const fromConsultation = String(
+    consultation?.engagement_status
+    || consultation?.engagementStatus
+    || consultation?.engagement?.engagement_status
+    || consultation?.engagement?.status
+    || '',
+  ).trim().toLowerCase();
+  if (fromConsultation) {
+    return fromConsultation;
+  }
+
+  const targetId = Number(engagementId || consultation?.engagement_id);
+  const rows = Array.isArray(assessmentRows) ? assessmentRows : [];
+  const match = rows.find((row) => {
+    const rowEngagementId = Number(
+      row?.engagement_id
+      ?? row?.engagementId
+      ?? row?.engagement?.engagement_id
+      ?? row?.engagement?.id,
+    );
+    return Number.isFinite(targetId) && targetId > 0 && rowEngagementId === targetId;
+  }) || rows.find((row) => String(row?.status || '').toLowerCase() === 'active') || rows[0];
+
+  return String(
+    match?.engagement_status
+    || match?.engagementStatus
+    || match?.engagement?.engagement_status
+    || match?.engagement?.status
+    || '',
+  ).trim().toLowerCase();
+};
+
+export const isEngagementRunningForComplimentaryPopup = (consultation, assessmentRows = [], engagementId = null) => (
+  resolveEngagementStatus(consultation, assessmentRows, engagementId) === 'running'
+);
+
+/**
  * Show home consultation popup when any consultations.* flag is true
  * and that offered type is still unfilled (not doctor-only).
+ *
+ * Requires engagement_status === "running". Any other status hides the popup.
+ *
+ * Offline mode also requires GET /engagements/code/{code}:
+ * - consultation.is_enable (master)
+ * - at least one YYYY-MM-DD.is_enable date turned on
  */
-export const shouldShowDoctorConsultationPopup = (consultation, { bloodTestDate } = {}) => {
+export const shouldShowDoctorConsultationPopup = (
+  consultation,
+  {
+    bloodTestDate,
+    offlineScheduleEnabled = true,
+    assessmentRows = [],
+    engagementId = null,
+  } = {},
+) => {
   if (isBloodTestDateAfterToday(bloodTestDate)) {
     return false;
   }
@@ -170,26 +226,41 @@ export const shouldShowDoctorConsultationPopup = (consultation, { bloodTestDate 
     return false;
   }
 
+  if (!isEngagementRunningForComplimentaryPopup(consultation, assessmentRows, engagementId)) {
+    return false;
+  }
+
   if (getOfferedConsultationTypes(consultation).length === 0) {
     return false;
   }
 
-  return isConsultationScheduleUnfilled(consultation);
+  if (!isConsultationScheduleUnfilled(consultation)) {
+    return false;
+  }
+
+  const mode = String(consultation?.consultation_mode || '').trim().toLowerCase();
+  if (mode === 'offline' && !offlineScheduleEnabled) {
+    return false;
+  }
+
+  return true;
 };
 
 export const fetchDoctorConsultationPopupEligibility = async ({ ttlMs = 45000 } = {}) => {
+  const empty = {
+    shouldShow: false,
+    engagementId: null,
+    consultation: null,
+    engagementCode: null,
+    consultationMode: null,
+    expertType: null,
+  };
+
   const rows = await peekMyAssessmentsRowsCached(ttlMs).catch(() => []);
   const engagementId = resolveActiveEngagementIdFromAssessments(rows);
 
   if (!engagementId) {
-    return {
-      shouldShow: false,
-      engagementId: null,
-      consultation: null,
-      engagementCode: null,
-      consultationMode: null,
-      expertType: null,
-    };
+    return empty;
   }
 
   const [consultation, upcomingSlot] = await Promise.all([
@@ -197,13 +268,35 @@ export const fetchDoctorConsultationPopupEligibility = async ({ ttlMs = 45000 } 
     getMyUpcomingSlot().catch(() => null),
   ]);
   const bloodTestDate = extractBloodTestDateFromUpcomingSlot(upcomingSlot);
+  const engagementCode = consultation?.engagement_code || null;
+  const consultationMode = String(consultation?.consultation_mode || '').trim().toLowerCase() || null;
+
+  let offlineScheduleEnabled = true;
+  if (consultationMode === 'offline') {
+    if (!engagementCode) {
+      offlineScheduleEnabled = false;
+    } else {
+      try {
+        const engagementDetails = await getEngagementByCode(engagementCode);
+        offlineScheduleEnabled = hasEnabledOfflineConsultationDates(engagementDetails);
+      } catch (_error) {
+        offlineScheduleEnabled = false;
+      }
+    }
+  }
 
   return {
-    shouldShow: shouldShowDoctorConsultationPopup(consultation, { bloodTestDate }),
+    shouldShow: shouldShowDoctorConsultationPopup(consultation, {
+      bloodTestDate,
+      offlineScheduleEnabled,
+      assessmentRows: rows,
+      engagementId,
+    }),
     engagementId,
     consultation,
-    engagementCode: consultation?.engagement_code || null,
+    engagementCode,
     consultationMode: consultation?.consultation_mode || null,
+    engagementStatus: resolveEngagementStatus(consultation, rows, engagementId) || null,
     expertType: resolveFirstUnfilledConsultationType(consultation),
   };
 };

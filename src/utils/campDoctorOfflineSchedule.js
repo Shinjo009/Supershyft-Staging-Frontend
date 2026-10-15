@@ -67,6 +67,79 @@ const isConsultationEntryForExpertType = (entry, expertType = 'doctor') => {
   return entryType === String(expertType || 'doctor').toLowerCase();
 };
 
+const asEnabledFlag = (value) => {
+  if (value === false || value === 'false' || value === 'False' || value === 0 || value === '0') {
+    return false;
+  }
+  return true;
+};
+
+const asDateEnabledFlag = (value) => {
+  if (value === undefined || value === null) {
+    return true;
+  }
+  return value === true || value === 'true' || value === 'True' || value === 1 || value === '1';
+};
+
+/**
+ * Resolve offline consultation block from GET /engagements/code/{code}.
+ * Supports top-level `consultation` and legacy `slot_detail.consultation`.
+ */
+export const resolveOfflineConsultationBlock = (engagementDetails) => {
+  const root = engagementDetails?.data && typeof engagementDetails.data === 'object'
+    ? engagementDetails.data
+    : engagementDetails;
+  if (!root || typeof root !== 'object') {
+    return null;
+  }
+
+  if (root.slot_detail?.consultation && typeof root.slot_detail.consultation === 'object') {
+    return root.slot_detail.consultation;
+  }
+
+  if (root.consultation && typeof root.consultation === 'object' && !Array.isArray(root.consultation)) {
+    return root.consultation;
+  }
+
+  return null;
+};
+
+/** Master switch: `consultation.is_enable` from GET /engagements/code/{code}. */
+export const isOfflineConsultationMasterEnabled = (engagementDetails) => {
+  const block = resolveOfflineConsultationBlock(engagementDetails);
+  if (!block) {
+    return false;
+  }
+  return asEnabledFlag(block.is_enable);
+};
+
+/** True when a date key payload is enabled (`YYYY-MM-DD.is_enable`). */
+export const isOfflineConsultationDateEnabled = (datePayload) => {
+  if (Array.isArray(datePayload)) {
+    return datePayload.length > 0;
+  }
+  if (!datePayload || typeof datePayload !== 'object') {
+    return false;
+  }
+  return asDateEnabledFlag(datePayload.is_enable);
+};
+
+/**
+ * True when offline consultation is master-enabled and at least one today/future
+ * date has `is_enable` turned on.
+ */
+export const hasEnabledOfflineConsultationDates = (engagementDetails) => {
+  const block = resolveOfflineConsultationBlock(engagementDetails);
+  if (!block || !asEnabledFlag(block.is_enable)) {
+    return false;
+  }
+
+  return Object.keys(block)
+    .filter((key) => /^\d{4}-\d{2}-\d{2}$/.test(key))
+    .filter((key) => isConsultationDateKeyBookable(key))
+    .some((key) => isOfflineConsultationDateEnabled(block[key]));
+};
+
 /**
  * Normalize per-date consultation payload.
  * Supports:
@@ -82,7 +155,7 @@ const extractConsultationCabinEntries = (datePayload) => {
     return [];
   }
 
-  if (datePayload.is_enable === false) {
+  if (!isOfflineConsultationDateEnabled(datePayload)) {
     return [];
   }
 
@@ -117,8 +190,23 @@ const resolveCabinSlotSpotLeft = (slotItem, cabinEntry) => {
 };
 
 export const parseDoctorOfflineSchedule = (engagementDetails, expertType = 'doctor') => {
-  const consultationByDate = engagementDetails?.slot_detail?.consultation || {};
+  const consultationByDate = resolveOfflineConsultationBlock(engagementDetails) || {};
+  const emptySchedule = {
+    dateOptions: [],
+    cabinsByDate: {},
+    slotsByDate: {},
+    slotDurationMinutes: 30,
+    hasCabins: false,
+    masterEnabled: false,
+  };
+
+  // Top-level consultation.is_enable gates offline booking entirely.
+  if (!asEnabledFlag(consultationByDate.is_enable)) {
+    return emptySchedule;
+  }
+
   const dateKeys = Object.keys(consultationByDate)
+    .filter((dateKey) => /^\d{4}-\d{2}-\d{2}$/.test(dateKey))
     .filter((dateKey) => isConsultationDateKeyBookable(dateKey))
     .sort();
   const cabinsByDate = {};
@@ -190,6 +278,7 @@ export const parseDoctorOfflineSchedule = (engagementDetails, expertType = 'doct
     slotsByDate,
     slotDurationMinutes: defaultSlotDuration,
     hasCabins,
+    masterEnabled: true,
   };
 };
 

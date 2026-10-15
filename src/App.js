@@ -12,7 +12,11 @@ import {
 import { CAMP_DOCTOR_CONSULTATION_ENABLED } from './pages/CampDoctorConsultationPage/campDoctorConsultationConfig';
 import { getUpcomingCampAppointment, readCampAppointments, saveCampAppointment } from './utils/campAppointments';
 import ConsultationReminderBar from './pages/CampDoctorConsultationPage/ConsultationReminderBar';
-import { fetchDoctorConsultationPopupEligibility, optOutOfConsultationPopup } from './utils/campDoctorConsultationEligibility';
+import {
+  fetchDoctorConsultationPopupEligibility,
+  hasOptedOutOfConsultationPopup,
+  optOutOfConsultationPopup,
+} from './utils/campDoctorConsultationEligibility';
 import { resendOtp, verifyOtp, refreshToken, logout } from './services/authService';
 import { createUser, getMyProfiles, saveSuperclubMcqPreferences, getMyUpcomingSlot } from './services/usersService';
 import { getMyProfile } from './services/profileService';
@@ -1462,29 +1466,35 @@ function App() {
     const loadDoctorConsultationEligibility = async () => {
       try {
         const result = await fetchDoctorConsultationPopupEligibility();
-        if (!cancelled) {
-          if (campDoctorPopupDismissedRef.current) {
-            setShowCampDoctorConsultation(false);
-            return;
-          }
-          setShowCampDoctorConsultation(true);
+        if (cancelled) {
+          return;
+        }
+        if (campDoctorPopupDismissedRef.current) {
+          setShowCampDoctorConsultation(false);
+          setDoctorConsultationContext(null);
+          return;
+        }
+
+        const popupUserId = selectedAccountId ?? currentUserId;
+        const optedOut = hasOptedOutOfConsultationPopup(popupUserId, result.engagementId);
+        const shouldShow = Boolean(result.shouldShow) && !optedOut;
+
+        setShowCampDoctorConsultation(shouldShow);
+        if (shouldShow) {
           setDoctorConsultationContext({
             engagementId: result.engagementId,
             engagementCode: result.engagementCode,
             consultationMode: result.consultationMode,
             expertType: result.expertType || 'doctor',
           });
+        } else {
+          setDoctorConsultationContext(null);
         }
       } catch (error) {
         console.error('Failed to resolve doctor consultation popup eligibility:', error);
         if (!cancelled) {
-          setShowCampDoctorConsultation(true);
-          setDoctorConsultationContext({
-            engagementId: null,
-            engagementCode: null,
-            consultationMode: null,
-            expertType: 'doctor',
-          });
+          setShowCampDoctorConsultation(false);
+          setDoctorConsultationContext(null);
         }
       }
     };
