@@ -125,12 +125,19 @@ const decorateScheduledAppointment = (item) => {
   }
 
   if (next.category === 'doctor' || next.category === 'nutritionist' || next.category === 'ayurveda') {
-    delete next.pendingDetails;
-    delete next.pendingDetailsText;
     const expertId = Number(next.expertId ?? next.expert_id);
-    if (Number.isFinite(expertId) && expertId > 0) {
+    const hasExpert = Number.isFinite(expertId) && expertId > 0;
+    if (hasExpert) {
       next.expertId = expertId;
       next.expert_id = expertId;
+      delete next.pendingDetails;
+      delete next.pendingDetailsText;
+    } else {
+      next.expertId = null;
+      next.expert_id = null;
+      next.pendingDetails = true;
+      next.pendingDetailsText = next.pendingDetailsText
+        || 'An expert will be assigned within 24 hours';
     }
     const expertName = String(next.expertName || '').trim();
     if (!next.personName && expertName && expertName !== next.title && !GENERIC_EXPERT_LABELS.has(expertName)) {

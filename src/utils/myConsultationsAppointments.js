@@ -220,11 +220,22 @@ const isConsultationSlotPast = (item, nowMs = Date.now()) => {
   return startMs + durationMs <= nowMs;
 };
 
+const hasAssignedExpertId = (item) => {
+  const id = Number(item?.expert_id ?? item?.expertId);
+  return Number.isFinite(id) && id > 0;
+};
+
 const resolveConsultationStatus = (item) => {
   const engagementStatus = String(item?.engagement_status || '').trim().toLowerCase();
-  // Unpaid / incomplete checkout — never show as a booked appointment.
-  if (engagementStatus === 'draft') {
+  // Unassigned drafts (no expert yet) stay hidden. Expert-linked drafts still surface so
+  // booked-from-profile consultations can open GET /experts/{expert_id} on details.
+  if (engagementStatus === 'draft' && !hasAssignedExpertId(item)) {
     return null;
+  }
+
+  // engagement_status completed: done=true → Completed tab; done=false → Cancelled tab.
+  if (engagementStatus === 'completed') {
+    return item?.done === true ? 'completed' : 'cancelled';
   }
 
   const status = String(item?.status || '').trim().toLowerCase();
@@ -247,7 +258,7 @@ const resolveConsultationStatus = (item) => {
     return 'cancelled';
   }
 
-  if (status === 'scheduled' || engagementStatus === 'scheduled' || hasSlot) {
+  if (status === 'scheduled' || engagementStatus === 'scheduled' || engagementStatus === 'running' || hasSlot) {
     return 'scheduled';
   }
   return null;

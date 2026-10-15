@@ -1103,14 +1103,16 @@
 }
 
 .blood-markers-page__history-bars-value {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   line-height: 20px;
+  opacity: 0.75;
 }
 
 .blood-markers-page__history-bars-value.is-latest {
   font-size: 16px;
   line-height: 20px;
+  opacity: 1;
 }
 
 .blood-markers-page__history-bars-track {
@@ -1119,6 +1121,10 @@
   gap: 6px;
   height: 8px;
   width: 100%;
+}
+
+.blood-markers-page__history-bars-col:not(.is-latest) .blood-markers-page__history-bars-track {
+  opacity: 0.75;
 }
 
 .blood-markers-page__history-bars-dash {

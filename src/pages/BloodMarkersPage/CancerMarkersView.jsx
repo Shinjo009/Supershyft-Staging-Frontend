@@ -60,7 +60,10 @@ function CancerMarkerCard({ group }) {
         {readings.map((reading, index) => {
           const tone = readingTone(reading.risk);
           return (
-            <div key={`${reading.date}-${index}`} className="blood-markers-page__history-bars-col">
+            <div
+              key={`${reading.date}-${index}`}
+              className={`blood-markers-page__history-bars-col${reading.latest ? ' is-latest' : ''}`}
+            >
               <span
                 className={`blood-markers-page__history-bars-value${reading.latest ? ' is-latest' : ''}`}
                 style={{
@@ -80,7 +83,7 @@ function CancerMarkerCard({ group }) {
                       style={{
                         background: solid ? tone.solid : tone.dim,
                         opacity: solid ? 1 : 0.5,
-                        boxShadow: tone.shadow,
+                        boxShadow: reading.latest ? tone.shadow : 'none',
                       }}
                     />
                   );

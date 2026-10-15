@@ -247,32 +247,32 @@
   left: 8px;
   top: 42px;
   bottom: 42px;
-  width: 21px;
-  margin-left: -10px;
-  overflow: hidden;
+  width: 1px;
+  overflow: visible;
   pointer-events: none;
   z-index: 0;
-}
-
-.all-appointments-page__timeline::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.5);
-  box-shadow: 0 0 10px 5px rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  container-type: size;
 }
 
 .all-appointments-page__timeline img {
   position: absolute;
   left: 50%;
   top: 50%;
-  transform: translate(-50%, -50%) rotate(90deg);
+  /* Fallback length; overridden by cqh when supported */
+  width: 600px;
+  height: 21px;
   max-width: none;
-  opacity: 0.85;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  transform-origin: center center;
+}
+
+@supports (width: 1cqh) {
+  .all-appointments-page__timeline img {
+    width: 100cqh;
+  }
 }
 
 .all-appointments-page__list.is-empty .all-appointments-page__timeline {
@@ -296,12 +296,16 @@
   padding-top: 32px;
   width: 16px;
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .all-appointments-page__dot {
   width: 16px;
   height: 16px;
   border-radius: 9999px;
+  position: relative;
+  z-index: 1;
 }
 
 .all-appointments-page__dot--teal {

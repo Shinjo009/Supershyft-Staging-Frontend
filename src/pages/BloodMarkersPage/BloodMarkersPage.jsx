@@ -811,7 +811,10 @@ const BloodMarkerHistoryTimeline = ({
       aria-label="Previous results"
     >
       {resolved.map((point) => (
-        <div key={point.key} className="blood-markers-page__history-bars-col">
+        <div
+          key={point.key}
+          className={`blood-markers-page__history-bars-col${point.isLatest ? ' is-latest' : ''}`}
+        >
           <span
             className={`blood-markers-page__history-bars-value${point.isLatest ? ' is-latest' : ''}`}
             style={{
@@ -831,7 +834,7 @@ const BloodMarkerHistoryTimeline = ({
                   style={{
                     background: solid ? point.tone.solid : point.tone.dim,
                     opacity: solid ? 1 : 0.5,
-                    boxShadow: point.tone.shadow,
+                    boxShadow: point.isLatest ? point.tone.shadow : 'none',
                   }}
                 />
               );

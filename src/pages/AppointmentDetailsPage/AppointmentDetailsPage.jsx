@@ -171,7 +171,21 @@ const fallbackRoleForAppointment = (appointment) => {
   return 'General Physician';
 };
 
-const findExpertIdFromConsultations = async (appointment) => {
+const roleFromExpertType = (expertType) => {
+  const value = String(expertType || '').trim().toLowerCase();
+  if (value === 'nutritionist') {
+    return 'Clinical Nutritionist';
+  }
+  if (value === 'ayurveda' || value === 'ayurvedic') {
+    return 'Ayurvedic Practitioner';
+  }
+  if (value === 'doctor') {
+    return 'General Physician';
+  }
+  return '';
+};
+
+const findConsultationMatch = async (appointment) => {
   const consultationId = toPositiveId(appointment?.consultationId ?? appointment?.consultation_id);
   const engagementId = toPositiveId(appointment?.engagementId ?? appointment?.engagement_id);
   const apiDate = String(appointment?.apiDate || '').trim();
@@ -180,7 +194,7 @@ const findExpertIdFromConsultations = async (appointment) => {
   try {
     const response = await getMyConsultations();
     const rows = Array.isArray(response?.data) ? response.data : [];
-    const match = rows.find((row) => {
+    return rows.find((row) => {
       if (consultationId && toPositiveId(row?.consultation_id) === consultationId) {
         return true;
       }
@@ -193,8 +207,7 @@ const findExpertIdFromConsultations = async (appointment) => {
         return true;
       }
       return false;
-    });
-    return toPositiveId(match?.expert_id ?? match?.expertId);
+    }) || null;
   } catch {
     return null;
   }
@@ -207,7 +220,9 @@ const AppointmentDetailsPage = ({ appointment = null, onBack, onRescheduled }) =
   const [expertSpecialty, setExpertSpecialty] = useState('');
   const [expertPhoto, setExpertPhoto] = useState('');
   const [expertRatingLabel, setExpertRatingLabel] = useState('');
+  const [expertDurationMins, setExpertDurationMins] = useState(30);
   const [expertLoading, setExpertLoading] = useState(false);
+  const [resolvedExpertId, setResolvedExpertId] = useState(() => resolveAppointmentExpertId(appointment));
 
   useEffect(() => {
     let cancelled = false;
@@ -217,10 +232,12 @@ const AppointmentDetailsPage = ({ appointment = null, onBack, onRescheduled }) =
         return;
       }
       const name = String(record.name || '').trim();
-      const specialty = String(record.specialization || '').trim();
+      const specialty = String(record.specialization || '').trim()
+        || roleFromExpertType(record.expert_type);
       const photo = String(record.profile_photo || '').trim();
       const ratingValue = Number(record.rating);
       const reviewCount = Number(record.review_count) || 0;
+      const duration = Number(record.session_duration_mins);
       setExpertName(name);
       setExpertSpecialty(specialty);
       setExpertPhoto(photo);
@@ -229,6 +246,7 @@ const AppointmentDetailsPage = ({ appointment = null, onBack, onRescheduled }) =
           ? `${ratingValue.toFixed(1)}${reviewCount ? ` (${reviewCount} reviews)` : ''}`
           : '',
       );
+      setExpertDurationMins(Number.isFinite(duration) && duration > 0 ? duration : 30);
     };
 
     const loadExpert = async () => {
@@ -236,16 +254,24 @@ const AppointmentDetailsPage = ({ appointment = null, onBack, onRescheduled }) =
       setExpertSpecialty('');
       setExpertPhoto('');
       setExpertRatingLabel('');
+      setExpertDurationMins(30);
       setExpertLoading(true);
+      setResolvedExpertId(resolveAppointmentExpertId(appointment));
 
       try {
         let expertId = resolveAppointmentExpertId(appointment);
         if (!expertId && appointment) {
-          expertId = await findExpertIdFromConsultations(appointment);
+          const match = await findConsultationMatch(appointment);
+          expertId = toPositiveId(match?.expert_id ?? match?.expertId);
         }
+        if (cancelled) {
+          return;
+        }
+        setResolvedExpertId(expertId);
         if (!expertId) {
           return;
         }
+        // GET /experts/{expert_id}
         const record = await getExpertById(expertId);
         applyExpert(record);
       } catch {
@@ -254,6 +280,7 @@ const AppointmentDetailsPage = ({ appointment = null, onBack, onRescheduled }) =
           setExpertSpecialty('');
           setExpertPhoto('');
           setExpertRatingLabel('');
+          setExpertDurationMins(30);
         }
       } finally {
         if (!cancelled) {
@@ -272,13 +299,23 @@ const AppointmentDetailsPage = ({ appointment = null, onBack, onRescheduled }) =
   const details = useMemo(() => {
     const fallbackRole = fallbackRoleForAppointment(appointment);
     const role = expertSpecialty || fallbackRole;
-    const name = expertName || (expertLoading ? 'Loading…' : role);
+    const hasExpert = Boolean(resolvedExpertId);
+    let name = expertName;
+    if (!name) {
+      if (expertLoading) {
+        name = 'Loading…';
+      } else if (!hasExpert) {
+        name = 'Expert will be assigned';
+      } else {
+        name = appointment?.title || fallbackRole;
+      }
+    }
     const photo = expertPhoto || defaultAvatar;
     const dateLabel = appointment?.detailDateLabel
       || (appointment?.apiDate ? formatDetailDate(appointment.apiDate) : null)
       || '—';
     const timeLabel = appointment?.detailTimeLabel
-      || formatDetailTime(appointment?.apiSlot || appointment?.whenLabel)
+      || formatDetailTime(appointment?.apiSlot || appointment?.whenLabel, expertDurationMins)
       || '—';
     const typeLabel = appointment?.detailTypeLabel || resolveTypeLabel(appointment);
     const frequencyLabel = appointment?.frequencyLabel || 'One-Time';
@@ -286,12 +323,14 @@ const AppointmentDetailsPage = ({ appointment = null, onBack, onRescheduled }) =
     return {
       name,
       role,
-      ratingLabel: expertRatingLabel || null,
+      ratingLabel: hasExpert ? (expertRatingLabel || null) : null,
       photo,
       dateLabel,
       timeLabel,
       typeLabel,
       frequencyLabel,
+      hasExpert,
+      expertLoading,
     };
   }, [
     appointment,
@@ -299,7 +338,9 @@ const AppointmentDetailsPage = ({ appointment = null, onBack, onRescheduled }) =
     expertSpecialty,
     expertPhoto,
     expertRatingLabel,
+    expertDurationMins,
     expertLoading,
+    resolvedExpertId,
   ]);
 
   return (
