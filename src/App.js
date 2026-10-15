@@ -10,7 +10,13 @@ import {
   SUPERCLUB_V1_SCREENS_ENABLED,
 } from './utils/superclubPlaylistLock';
 import { CAMP_DOCTOR_CONSULTATION_ENABLED } from './pages/CampDoctorConsultationPage/campDoctorConsultationConfig';
-import { getUpcomingCampAppointment, readCampAppointments, saveCampAppointment } from './utils/campAppointments';
+import {
+  getUpcomingCampAppointment,
+  readCampAppointments,
+  reconcileCampAppointmentsWithApi,
+  saveCampAppointment,
+} from './utils/campAppointments';
+import { fetchMyConsultationAppointments } from './utils/myConsultationsAppointments';
 import ConsultationReminderBar from './pages/CampDoctorConsultationPage/ConsultationReminderBar';
 import {
   fetchDoctorConsultationPopupEligibility,
@@ -1465,10 +1471,17 @@ function App() {
 
     const loadDoctorConsultationEligibility = async () => {
       try {
-        const result = await fetchDoctorConsultationPopupEligibility();
+        const [result, apiAppointments] = await Promise.all([
+          fetchDoctorConsultationPopupEligibility(),
+          fetchMyConsultationAppointments().catch(() => []),
+        ]);
         if (cancelled) {
           return;
         }
+
+        // Drop stale local reminder rows when API says that consult is past / cancelled.
+        setCampAppointments((current) => reconcileCampAppointmentsWithApi(current, apiAppointments));
+
         if (campDoctorPopupDismissedRef.current) {
           setShowCampDoctorConsultation(false);
           setDoctorConsultationContext(null);
@@ -2442,12 +2455,6 @@ function App() {
             console.log('Navigate to Reports');
             setCurrentPage('reports');
           }}
-          onOpenHealthAssessment={() => {
-            setIsB2bQuestionnaireFlow(false);
-            setHealthAssessmentBackPage('profile');
-            setCurrentPage('health-assessment');
-            initializeQuestionnaire({ excludeVitals: false });
-          }}
           onOpenCustomerSupport={() => {
             console.log('Navigate to Customer Support');
             setCurrentPage('customer-support');
@@ -2458,10 +2465,6 @@ function App() {
           }}
           onOpenAddresses={() => {
             setCurrentPage('addresses');
-          }}
-          onOpenConsultationNotes={() => {
-            console.log('Navigate to Consultation Notes');
-            setCurrentPage('consultation-notes');
           }}
           onOpenAddAccount={() => {
             console.log('Navigate to Add Account');
@@ -2474,9 +2477,6 @@ function App() {
           onOpenFaq={() => {
             console.log("Navigate to FAQ's");
             setCurrentPage('faq');
-          }}
-          onOpenRateExperience={() => {
-            setCurrentPage('rate-experience');
           }}
           onOpenTerms={() => {
             console.log('Navigate to Terms & Conditions');

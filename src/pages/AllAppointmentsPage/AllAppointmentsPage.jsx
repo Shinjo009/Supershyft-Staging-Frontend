@@ -3,6 +3,7 @@ import './AllAppointmentsPage.css';
 import RescheduleConsultationSheet from '../../components/RescheduleConsultationSheet';
 import { getMyConsultations } from '../../services/usersService';
 import { appointmentsFromConsultationRows } from '../../utils/myConsultationsAppointments';
+import { reconcileCampAppointmentsWithApi } from '../../utils/campAppointments';
 import backIcon from '../../images/AllAppointments/back.svg';
 import homeIcon from '../../images/AllAppointments/home.svg';
 import videoIcon from '../../images/AllAppointments/video.svg';
@@ -257,16 +258,22 @@ const AllAppointmentsPage = ({ onBack, onOpenAppointment, appointments = [] }) =
 
   const mergedAppointments = useMemo(() => {
     const apiAppointments = consultationAppointments.map(decorateScheduledAppointment);
+    const reconciledLocal = reconcileCampAppointmentsWithApi(appointments, apiAppointments)
+      .map(decorateScheduledAppointment);
 
-    if (hasLoadedConsultations && apiAppointments.length > 0) {
+    if (hasLoadedConsultations) {
       const seen = new Set(apiAppointments.map((item) => item.id));
-      const extras = appointments
-        .map(decorateScheduledAppointment)
-        .filter((item) => item?.id && !seen.has(item.id));
+      const extras = reconciledLocal.filter((item) => (
+        item?.id
+        && !seen.has(item.id)
+        // Only keep local rows that are still scheduled; past/cancelled locals
+        // are superseded by API status mapping when present.
+        && (item.status || 'scheduled') === 'scheduled'
+      ));
       return [...apiAppointments, ...extras];
     }
 
-    let result = appointments.map(decorateScheduledAppointment);
+    let result = reconciledLocal;
     if (!result.some((item) => (item.status || 'scheduled') === 'scheduled')) {
       result = [...result, ...SCHEDULED_SAMPLE_APPOINTMENTS];
     }

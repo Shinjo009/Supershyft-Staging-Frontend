@@ -233,28 +233,26 @@ const resolveConsultationStatus = (item) => {
     return null;
   }
 
-  // engagement_status completed: done=true → Completed tab; done=false → Cancelled tab.
-  if (engagementStatus === 'completed') {
-    return item?.done === true ? 'completed' : 'cancelled';
-  }
-
   const status = String(item?.status || '').trim().toLowerCase();
-  if (item?.done === true || status === 'completed' || status === 'done') {
+  const isDone = item?.done === true || status === 'completed' || status === 'done';
+
+  // Completed consultations only when backend marks done/completed.
+  if (isDone) {
     return 'completed';
   }
+
+  // engagement_status completed + done=false → Cancelled.
+  if (engagementStatus === 'completed') {
+    return 'cancelled';
+  }
+
   if (status === 'cancelled' || status === 'canceled' || engagementStatus === 'cancelled' || engagementStatus === 'canceled') {
     return 'cancelled';
   }
 
   const hasSlot = Boolean(item?.date && item?.slot);
-  const isPast = hasSlot && isConsultationSlotPast(item);
-
-  if (isPast) {
-    // Past visits already marked done/completed return above.
-    // Past slot with notes/attachments → completed; otherwise → cancelled.
-    if (item?.consultation_summary || (Array.isArray(item?.attachments) && item.attachments.length > 0)) {
-      return 'completed';
-    }
+  // Past slot with done=false (or missing done) → Cancelled, never Scheduled.
+  if (hasSlot && isConsultationSlotPast(item)) {
     return 'cancelled';
   }
 
