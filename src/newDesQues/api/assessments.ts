@@ -144,7 +144,7 @@ function normalizePackageCode(row: AssessmentRow): string {
     .replace(/\s+/g, '_')
 }
 
-/** Metsights Pro or Basic only — excludes FitPrint / Fitness Print. */
+/** Metsights Pro or Essentials only (Basic legacy) — excludes FitPrint / Fitness Print. */
 export function isMetsightsProOrBasic(row: AssessmentRow): boolean {
   const code = normalizePackageCode(row)
   const display = String(row.package_display_name || '')
@@ -155,11 +155,17 @@ export function isMetsightsProOrBasic(row: AssessmentRow): boolean {
     return false
   }
 
-  if (code.includes('METSIGHTS') && (code.includes('PRO') || code.includes('BASIC'))) {
+  if (
+    code.includes('METSIGHTS')
+    && (code.includes('PRO') || code.includes('ESSENTIALS') || code.includes('BASIC'))
+  ) {
     return true
   }
 
-  if (display.includes('metsights') && (display.includes('pro') || display.includes('basic'))) {
+  if (
+    display.includes('metsights')
+    && (display.includes('pro') || display.includes('essentials') || display.includes('basic'))
+  ) {
     return true
   }
 
@@ -388,7 +394,7 @@ export async function loadAssessmentCategoriesForStep2(
   const assessmentInstanceId = pickLatestMetsightsProOrBasicId(rows)
 
   if (!assessmentInstanceId) {
-    throw new Error('No Metsights Pro or Basic assessment found for this account.')
+    throw new Error('No Metsights Pro or Essentials assessment found for this account.')
   }
 
   const allCategories = await getAssessmentCategoryStatuses(accessToken, assessmentInstanceId)

@@ -54,7 +54,7 @@ const getAssessmentInstanceId = (assessment) => {
 };
 
 /**
- * Prefer Metsights Pro/Basic over FitPrint — only compares rows that share the same engagement_id.
+ * Prefer Metsights Pro/Essentials over FitPrint — only compares rows that share the same engagement_id.
  */
 const normalizePackageCode = (row) => String(
   row?.package_code || row?.packageCode || row?.assessment?.package_code || '',
@@ -88,7 +88,13 @@ const getPackagePriorityTier = (row) => {
     return 3;
   }
 
-  if (code === 'METSIGHTS_BASIC' || (code.includes('METSIGHTS') && code.includes('BASIC'))) {
+  // Essentials replaced Basic; keep Basic match for any legacy assessment rows.
+  if (
+    code === 'METSIGHTS_ESSENTIALS'
+    || (code.includes('METSIGHTS') && code.includes('ESSENTIALS'))
+    || code === 'METSIGHTS_BASIC'
+    || (code.includes('METSIGHTS') && code.includes('BASIC'))
+  ) {
     return 2;
   }
 
@@ -813,7 +819,7 @@ const resolveMetsightsSubmitIds = (targets, assessments = []) => {
 };
 
 /**
- * Build 3 submit calls on Metsights Pro (or Basic fallback) and 1 on FitPrint Full when present.
+ * Build 3 submit calls on Metsights Pro (or Essentials fallback) and 1 on FitPrint Full when present.
  * Used by the full health questionnaire (camp/B2B) — not the Health Span / FitPrint gap flow.
  * Instance ids come from `/assessments/me` — never the generic path instance id.
  */
@@ -912,7 +918,7 @@ export const submitLatestEngagementAssessment = async ({ excludeVitals = false }
   const { metsightsProId } = resolveMetsightsSubmitIds(targets, assessments);
 
   if (!metsightsProId) {
-    throw new Error('No Metsights Pro assessment is available to submit.');
+    throw new Error('No Metsights Pro or Essentials assessment is available to submit.');
   }
 
   const jobs = collectMetsightsSubmitJobs(targets, assessments, { excludeVitals });

@@ -207,7 +207,7 @@ const normalizedAssessmentFamily = (row) => {
     .toUpperCase()
     .replace(/\s+/g, '_');
 
-  // Never treat VIFC (or other ignored codes) as FitPrint / Basic / Pro.
+  // Never treat VIFC (or other ignored codes) as FitPrint / Essentials / Pro.
   if (IGNORED_ASSESSMENTS_ME_PACKAGE_CODES.has(packageCode)) {
     return '';
   }
@@ -229,9 +229,17 @@ const normalizedAssessmentFamily = (row) => {
     return 'fitprint';
   }
 
+  // Family key stays `basic_or_pro`; Essentials replaced Basic (Basic kept for legacy rows).
   if (
-    text.includes('basic')
+    (packageCode.includes('METSIGHTS') && (
+      packageCode.includes('PRO')
+      || packageCode.includes('ESSENTIALS')
+      || packageCode.includes('BASIC')
+    ))
+    || text.includes('essentials')
+    || text.includes('basic')
     || text.includes('pro')
+    || text.includes('metsights_essentials')
     || text.includes('metsights_basic')
     || text.includes('metsights_pro')
     || text === '1'
@@ -711,6 +719,12 @@ const isMetsightsProRow = (row) => {
   return code.includes('METSIGHTS') && code.includes('PRO');
 };
 
+/** Essentials replaced Basic — same role as Pro when Pro is absent. */
+const isMetsightsEssentialsRow = (row) => {
+  const code = normalizePackageCodeFromRow(row);
+  return code.includes('METSIGHTS') && code.includes('ESSENTIALS');
+};
+
 const isFitprintFullRow = (row) => {
   if (normalizedAssessmentFamily(row) !== 'fitprint') {
     return false;
@@ -743,12 +757,13 @@ const rowsOnEngagement = (rows, engagementId) => {
 
 /**
  * Metsights POST /assessments/{id}/submit instance ids from `/assessments/me`:
- * Pro (or Basic fallback) for the 3 core categories; FitPrint Full for fitness-parameters.
+ * Pro (or Essentials fallback; Basic legacy) for the 3 core categories; FitPrint Full for fitness-parameters.
  */
 export const resolveMetsightsSubmitInstanceIdsFromRows = (rawRows) => {
   const rows = sortAssessmentRowsLatestFirst(Array.isArray(rawRows) ? rawRows : []);
 
   const anchorRow = rows.find((row) => isMetsightsProRow(row))
+    || rows.find((row) => isMetsightsEssentialsRow(row))
     || rows.find((row) => normalizedAssessmentFamily(row) === 'basic_or_pro')
     || null;
 
@@ -764,6 +779,7 @@ export const resolveMetsightsSubmitInstanceIdsFromRows = (rawRows) => {
   const onEngagement = rowsOnEngagement(rows, engagementId);
 
   const proRow = onEngagement.find((row) => isMetsightsProRow(row))
+    || onEngagement.find((row) => isMetsightsEssentialsRow(row))
     || onEngagement.find((row) => normalizedAssessmentFamily(row) === 'basic_or_pro')
     || anchorRow;
 
