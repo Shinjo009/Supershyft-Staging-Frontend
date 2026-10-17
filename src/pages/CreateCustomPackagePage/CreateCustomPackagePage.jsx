@@ -6,80 +6,41 @@ import {
   listDiagnosticTestGroups,
 } from '../../services/diagnosticPackagesService';
 import { getAccessToken } from '../../utils/authStorage';
-import liverIcon from '../../images/Liver_HAC.svg';
-import haematologyIcon from '../../images/Haemotology_HAC.svg';
-import kidneyIcon from '../../images/Kidney_HAC.svg';
-import vitaminsIcon from '../../images/Vitamins.svg';
-import lipidIcon from '../../images/Lipid_Flow.svg';
-import ironIcon from '../../images/Iron_HAC.svg';
-import thyroidIcon from '../../images/Thyroid.svg';
-import diabetesIcon from '../../images/Diabetes_HAC.svg';
-import inflammationIcon from '../../images/Inflammation.svg';
-import sleepIcon from '../../images/Sleep.svg';
-import hormonesIcon from '../../images/Hormones_Outline.svg';
-import allergiesIcon from '../../images/Allergies_HAC.svg';
-import cardiacIcon from '../../images/Cardiac-RA.svg';
-import ferritinIcon from '../../images/Ferritin.svg';
-import homaIcon from '../../images/HOMA.svg';
-import insulinIcon from '../../images/Insulin.svg';
-import urineIcon from '../../images/Urine.svg';
-import breastIcon from '../../images/Breast_HAC.svg';
-import ovarianIcon from '../../images/Ovarian_HAC.svg';
-import prostateIcon from '../../images/Prostate_HAC.svg';
-import colorectalIcon from '../../images/Colorectal_HAC.svg';
-import pancreaticIcon from '../../images/Pancreatic_HAC.svg';
-import stomatchIcon from '../../images/Stomach_HAC.svg';
-import afpIcon from '../../images/AFP_HAC.svg';
+import kidneyArt from '../../images/Custom Packages/Kidney_custom.svg';
+import liverArt from '../../images/Custom Packages/LiverFunction.svg';
+import cbcArt from '../../images/Custom Packages/CBC_custom.svg';
+import thyroidArt from '../../images/Custom Packages/Thyroid_custom.svg';
+import allergyArt from '../../images/Custom Packages/AllergyScreening_custom.svg';
+import vitaminsArt from '../../images/Custom Packages/Vitamins_custom.svg';
+import cancerArt from '../../images/Custom Packages/CancerScreening_custom.svg';
+import leafArt from '../../images/Custom Packages/Object_custom.png';
 
-const ORGAN_ICON_KEYWORDS = [
-  ['haematology', haematologyIcon],
-  ['hematology', haematologyIcon],
-  ['hemogram', haematologyIcon],
-  ['cbc', haematologyIcon],
-  ['liver', liverIcon],
-  ['kidney', kidneyIcon],
-  ['renal', kidneyIcon],
-  ['vitamin', vitaminsIcon],
-  ['lipid', lipidIcon],
-  ['cholesterol', lipidIcon],
-  ['iron', ironIcon],
-  ['ferritin', ferritinIcon],
-  ['thyroid', thyroidIcon],
-  ['diabetes', diabetesIcon],
-  ['hba1c', diabetesIcon],
-  ['glucose', diabetesIcon],
-  ['sugar', diabetesIcon],
-  ['inflammation', inflammationIcon],
-  ['sleep', sleepIcon],
-  ['hormone', hormonesIcon],
-  ['testosterone', hormonesIcon],
-  ['estrogen', hormonesIcon],
-  ['allerg', allergiesIcon],
-  ['cardiac', cardiacIcon],
-  ['heart', cardiacIcon],
-  ['homa', homaIcon],
-  ['insulin', insulinIcon],
-  ['urine', urineIcon],
-  ['breast', breastIcon],
-  ['ovarian', ovarianIcon],
-  ['prostate', prostateIcon],
-  ['colorectal', colorectalIcon],
-  ['pancreatic', pancreaticIcon],
-  ['stomach', stomatchIcon],
-  ['afp', afpIcon],
+const PROFILE_ART_KEYWORDS = [
+  ['liver', liverArt],
+  ['cbc', cbcArt],
+  ['haem', cbcArt],
+  ['hemogram', cbcArt],
+  ['hematology', cbcArt],
+  ['haematology', cbcArt],
+  ['thyroid', thyroidArt],
+  ['allerg', allergyArt],
+  ['vitamin', vitaminsArt],
+  ['cancer', cancerArt],
+  ['kidney', kidneyArt],
+  ['renal', kidneyArt],
 ];
 
-const getCategoryIcon = (name) => {
-  const key = String(name || '').trim().toLowerCase();
+const getProfileArt = (name, groupKey) => {
+  const key = `${String(name || '')} ${String(groupKey || '')}`.trim().toLowerCase();
   if (!key) {
-    return liverIcon;
+    return kidneyArt;
   }
-  for (const [keyword, icon] of ORGAN_ICON_KEYWORDS) {
+  for (const [keyword, art] of PROFILE_ART_KEYWORDS) {
     if (key.includes(keyword)) {
-      return icon;
+      return art;
     }
   }
-  return liverIcon;
+  return kidneyArt;
 };
 
 const ALL_CHIP = {
@@ -96,7 +57,6 @@ const toNumericPrice = (value) => {
   if (!Number.isFinite(numeric) || numeric < 0) {
     return 0;
   }
-
   return Math.round(numeric);
 };
 
@@ -110,11 +70,9 @@ const normalizeTagList = (rawTags) => {
       if (typeof tag === 'string' || typeof tag === 'number') {
         return String(tag).trim();
       }
-
       if (tag && typeof tag === 'object') {
         return String(tag?.tag_name || tag?.name || tag?.filter_chip || '').trim();
       }
-
       return '';
     })
     .filter(Boolean);
@@ -130,7 +88,6 @@ const normalizeTests = (rawTests) => {
       if (typeof test === 'string' || typeof test === 'number') {
         return String(test).trim();
       }
-
       if (test && typeof test === 'object') {
         return String(
           test?.test_name
@@ -140,7 +97,6 @@ const normalizeTests = (rawTests) => {
           || ''
         ).trim();
       }
-
       return '';
     })
     .filter(Boolean);
@@ -155,6 +111,7 @@ const normalizeGroupRow = (row, index) => {
     || `Test Group ${index + 1}`
   ).trim();
 
+  const groupKey = String(row?.group_key || row?.key || '').trim();
   const groupId = Number(row?.diagnostic_test_group_id ?? row?.test_group_id ?? row?.group_id ?? row?.id);
   const safeGroupId = Number.isFinite(groupId) && groupId > 0 ? groupId : null;
   const idValue = (safeGroupId ?? title) || index;
@@ -197,16 +154,23 @@ const normalizeGroupRow = (row, index) => {
     ? Math.round(rawCount)
     : tests.length;
 
+  const discountLabel = String(row?.discount || '').trim();
+  const discountPercent = oldPrice > 0
+    ? Math.max(0, Math.round(((oldPrice - salePrice) / oldPrice) * 100))
+    : 0;
+
   return {
     id,
     groupId: safeGroupId,
+    groupKey,
     title,
     salePrice,
     oldPrice,
+    discountLabel,
+    discountPercent,
     tags,
     tests,
     parameterCount,
-    /** Skip expand-time fetch when the list endpoint already included parameters. */
     testsLoaded: tests.length > 0,
   };
 };
@@ -254,12 +218,6 @@ const DotIcon = () => (
   </svg>
 );
 
-const SummaryArrowIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-    <path d="M12 10L8 6L4 10" stroke="#E6F6F4" strokeWidth="1.33333" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
 const CloseCircleIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
     <path d="M10.5 3.5L3.5 10.5M3.5 3.5L10.5 10.5" stroke="#8C9B99" strokeWidth="1.16667" strokeLinecap="round" strokeLinejoin="round" />
@@ -267,6 +225,19 @@ const CloseCircleIcon = () => (
 );
 
 const formatMoney = (value) => `₹${value}/-`;
+
+const getDiscountText = (category) => {
+  if (category?.discountLabel) {
+    const label = category.discountLabel.endsWith('%')
+      ? `${category.discountLabel} off`
+      : category.discountLabel;
+    return label;
+  }
+  if (category?.discountPercent > 0) {
+    return `${category.discountPercent}% off`;
+  }
+  return '';
+};
 
 const normalizeFilterChips = (rows) => {
   const source = Array.isArray(rows) ? rows : [];
@@ -296,7 +267,7 @@ const normalizeFilterChips = (rows) => {
   return [ALL_CHIP, ...normalized];
 };
 
-const CreateCustomPackagePage = ({ onBack, onCreatePackage }) => {
+const CreateCustomPackagePage = ({ onBack }) => {
   const [filterChips, setFilterChips] = useState([ALL_CHIP]);
   const [activeChipKey, setActiveChipKey] = useState('all');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -324,13 +295,11 @@ const CreateCustomPackagePage = ({ onBack, onCreatePackage }) => {
           return;
         }
 
-        const nextChips = normalizeFilterChips(rows);
-        setFilterChips(nextChips);
+        setFilterChips(normalizeFilterChips(rows));
       } catch {
         if (!isActive) {
           return;
         }
-
         setFilterChips([ALL_CHIP]);
       }
     };
@@ -352,9 +321,7 @@ const CreateCustomPackagePage = ({ onBack, onCreatePackage }) => {
 
         const rows = await listDiagnosticTestGroups(
           activeChipKey === 'all' ? undefined : activeChipKey,
-          {
-          accessToken: getAccessToken(),
-          }
+          { accessToken: getAccessToken() }
         );
         const normalizedRows = (Array.isArray(rows) ? rows : [])
           .map((row, index) => normalizeGroupRow(row, index))
@@ -364,9 +331,6 @@ const CreateCustomPackagePage = ({ onBack, onCreatePackage }) => {
           return;
         }
 
-        // Paint groups immediately, then kick off a parallel pre-fetch of every group's
-        // parameters so the "X parameters" count and the pills inside each card are
-        // accurate from the moment the user lands on the page (no need to expand first).
         setCategoryData(normalizedRows);
 
         setExpandedIds((prev) => {
@@ -394,7 +358,6 @@ const CreateCustomPackagePage = ({ onBack, onCreatePackage }) => {
         if (!isActive) {
           return;
         }
-
         setCategoryData([]);
         setCategoriesError(error?.message || 'Failed to load tests. Please try again.');
       } finally {
@@ -409,8 +372,6 @@ const CreateCustomPackagePage = ({ onBack, onCreatePackage }) => {
     return () => {
       isActive = false;
     };
-    // `fetchTestsForCategoryIds` is stable for the duration of this effect; we only
-    // want this to re-run when the active filter chip changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeChipKey]);
 
@@ -419,7 +380,6 @@ const CreateCustomPackagePage = ({ onBack, onCreatePackage }) => {
       if (!normalizedQuery) {
         return true;
       }
-
       const testText = category.tests.join(' ').toLowerCase();
       return category.title.toLowerCase().includes(normalizedQuery) || testText.includes(normalizedQuery);
     });
@@ -432,16 +392,17 @@ const CreateCustomPackagePage = ({ onBack, onCreatePackage }) => {
   const selectedCount = selectedCategories.length;
   const totalSale = selectedCategories.reduce((sum, item) => sum + item.salePrice, 0);
   const totalOld = selectedCategories.reduce((sum, item) => sum + item.oldPrice, 0);
-  const selectedParameters = selectedCategories.reduce(
-    (sum, item) => sum + (item.parameterCount || item.tests.length),
-    0,
-  );
 
   const selectedTokens = selectedCategories.map((item) => ({
     id: item.id,
     label: item.title.split(' ')[0],
   }));
-  const visibleTokens = selectedTokens;
+
+  useEffect(() => {
+    if (selectedCount === 0 && isViewAllOpen) {
+      setIsViewAllOpen(false);
+    }
+  }, [selectedCount, isViewAllOpen]);
 
   const fetchTestsForCategoryIds = async (categoryIds, sourceCategories) => {
     const uniqueIds = Array.from(new Set((Array.isArray(categoryIds) ? categoryIds : []).filter(Boolean)));
@@ -449,8 +410,6 @@ const CreateCustomPackagePage = ({ onBack, onCreatePackage }) => {
       return;
     }
 
-    // `sourceCategories` lets the caller pass freshly-loaded rows (e.g. right after the
-    // list endpoint resolves) so we don't have to wait for `categoryData` state to commit.
     const source = Array.isArray(sourceCategories) && sourceCategories.length > 0
       ? sourceCategories
       : categoryData;
@@ -491,14 +450,13 @@ const CreateCustomPackagePage = ({ onBack, onCreatePackage }) => {
 
     setCategoryData((prev) => prev.map((item) => {
       const result = results.find((entry) => entry.id === item.id);
-
       if (!result) {
         return item;
       }
-
       return {
         ...item,
         tests: result.tests.length > 0 ? result.tests : item.tests,
+        parameterCount: result.tests.length > 0 ? result.tests.length : item.parameterCount,
         testsLoaded: true,
       };
     }));
@@ -536,7 +494,6 @@ const CreateCustomPackagePage = ({ onBack, onCreatePackage }) => {
         next.delete(id);
       } else {
         next.add(id);
-        // Pre-fetch parameters so the selected list / totals can show pills without expanding the card.
         void fetchTestsForCategoryIds([id]);
       }
       return next;
@@ -548,15 +505,16 @@ const CreateCustomPackagePage = ({ onBack, onCreatePackage }) => {
       if (!prev.has(id)) {
         return prev;
       }
-
       const next = new Set(prev);
       next.delete(id);
       return next;
     });
   };
 
+  const hasSummary = selectedCount > 0;
+
   return (
-    <div className={`create-custom-page ${isSearchOpen ? 'create-custom-page--search-open' : ''} ${isViewAllOpen ? 'create-custom-page--view-all-open' : ''}`}>
+    <div className={`create-custom-page ${isSearchOpen ? 'create-custom-page--search-open' : ''} ${isViewAllOpen ? 'create-custom-page--view-all-open' : ''} ${hasSummary ? 'create-custom-page--has-summary' : ''}`}>
       <div className="create-custom-page__fixed-top">
         <header className="create-custom-page__header">
           <div className="create-custom-page__header-left">
@@ -615,32 +573,20 @@ const CreateCustomPackagePage = ({ onBack, onCreatePackage }) => {
       <div className="create-custom-page__content">
         <div className="create-custom-page__cards">
           {isLoadingCategories ? (
-            <article className="create-custom-page__card">
-              <div className="create-custom-page__card-top">
-                <div className="create-custom-page__card-info">
-                  <p className="create-custom-page__card-title">Loading tests...</p>
-                </div>
-              </div>
+            <article className="create-custom-page__card create-custom-page__card--status">
+              <p className="create-custom-page__card-title">Loading tests...</p>
             </article>
           ) : null}
 
           {!isLoadingCategories && categoriesError ? (
-            <article className="create-custom-page__card">
-              <div className="create-custom-page__card-top">
-                <div className="create-custom-page__card-info">
-                  <p className="create-custom-page__card-title">{categoriesError}</p>
-                </div>
-              </div>
+            <article className="create-custom-page__card create-custom-page__card--status">
+              <p className="create-custom-page__card-title">{categoriesError}</p>
             </article>
           ) : null}
 
           {!isLoadingCategories && !categoriesError && visibleCategories.length === 0 ? (
-            <article className="create-custom-page__card">
-              <div className="create-custom-page__card-top">
-                <div className="create-custom-page__card-info">
-                  <p className="create-custom-page__card-title">No tests found for this filter.</p>
-                </div>
-              </div>
+            <article className="create-custom-page__card create-custom-page__card--status">
+              <p className="create-custom-page__card-title">No tests found for this filter.</p>
             </article>
           ) : null}
 
@@ -648,84 +594,92 @@ const CreateCustomPackagePage = ({ onBack, onCreatePackage }) => {
             const isExpanded = expandedIds.has(category.id);
             const isSelected = selectedIds.has(category.id);
             const isTestsLoading = Boolean(testLoadingById[category.id]);
-            const discount = category.oldPrice > 0
-              ? Math.max(0, Math.round(((category.oldPrice - category.salePrice) / category.oldPrice) * 100))
-              : 0;
             const parameterCount = category.parameterCount || category.tests.length;
-            const categoryIcon = getCategoryIcon(category.title);
+            const profileArt = getProfileArt(category.title, category.groupKey);
+            const discountText = getDiscountText(category);
 
             return (
               <article
                 key={category.id}
-                className={`create-custom-page__card ${isSelected ? 'is-selected' : ''}`}
+                className={`create-custom-page__card ${isSelected ? 'is-selected' : ''} ${isExpanded ? 'is-expanded' : ''}`}
               >
-                <div className="create-custom-page__card-top">
-                  <div className="create-custom-page__card-heading">
-                    <span className="create-custom-page__card-icon" aria-hidden="true">
-                      <span
-                        className="create-custom-page__card-icon-img"
-                        style={{ '--card-icon-url': `url(${categoryIcon})` }}
-                      />
-                    </span>
+                <img
+                  className="create-custom-page__card-leaf"
+                  src={leafArt}
+                  alt=""
+                  aria-hidden="true"
+                />
+                <img
+                  className="create-custom-page__card-art"
+                  src={profileArt}
+                  alt=""
+                  aria-hidden="true"
+                />
+
+                <div className="create-custom-page__card-body">
+                  <div className="create-custom-page__card-top">
                     <p className="create-custom-page__card-title">{category.title}</p>
+                    <button
+                      type="button"
+                      className="create-custom-page__expand-btn"
+                      aria-label={`Toggle details for ${category.title}`}
+                      aria-expanded={isExpanded}
+                      onClick={() => toggleExpanded(category.id)}
+                    >
+                      {isExpanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                    </button>
                   </div>
 
-                  <button
-                    type="button"
-                    className="create-custom-page__expand-btn"
-                    aria-label={`Toggle details for ${category.title}`}
-                    aria-expanded={isExpanded}
-                    onClick={() => toggleExpanded(category.id)}
-                  >
-                    {isExpanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                  </button>
-                </div>
-
-                {isExpanded ? (
-                  <div className="create-custom-page__tests-grid">
-                    {isTestsLoading ? (
-                      <span className="create-custom-page__test-item">Loading tests...</span>
-                    ) : null}
-                    {!isTestsLoading && category.tests.length === 0 ? (
-                      <span className="create-custom-page__test-item">No tests available</span>
-                    ) : null}
-                    {category.tests.map((test) => (
-                      <span key={`${category.id}-${test}`} className="create-custom-page__test-item">
-                        {test}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-
-                <div className="create-custom-page__card-bottom">
-                  <div className="create-custom-page__card-info">
-                    <span className="create-custom-page__card-parameters">
-                      {parameterCount} parameter{parameterCount === 1 ? '' : 's'}
-                    </span>
-                    <div className="create-custom-page__price-row">
-                      <span className="create-custom-page__price-now">Rs. {category.salePrice}</span>
-                      <span className="create-custom-page__price-old">Rs. {category.oldPrice}</span>
-                      <span className="create-custom-page__price-off">{discount}% off</span>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    className={`create-custom-page__add-btn ${isSelected ? 'is-added' : ''}`}
-                    aria-pressed={isSelected}
-                    onClick={() => toggleSelected(category.id)}
-                  >
-                    {isSelected ? (
-                      <>
-                        <span className="create-custom-page__add-btn-circle" aria-hidden="true">
-                          <CheckIcon />
+                  {isExpanded ? (
+                    <div className="create-custom-page__tests-grid">
+                      {isTestsLoading ? (
+                        <span className="create-custom-page__test-item">Loading tests...</span>
+                      ) : null}
+                      {!isTestsLoading && category.tests.length === 0 ? (
+                        <span className="create-custom-page__test-item">No tests available</span>
+                      ) : null}
+                      {category.tests.map((test, testIndex) => (
+                        <span key={`${category.id}-${test}-${testIndex}`} className="create-custom-page__test-item">
+                          {test}
                         </span>
-                        Added
-                      </>
-                    ) : (
-                      'Add'
-                    )}
-                  </button>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="create-custom-page__card-bottom">
+                    <div className="create-custom-page__card-info">
+                      {!isExpanded ? (
+                        <span className="create-custom-page__card-parameters">
+                          {parameterCount} parameter{parameterCount === 1 ? '' : 's'}
+                        </span>
+                      ) : null}
+                      <div className="create-custom-page__price-row">
+                        <span className="create-custom-page__price-now">{formatMoney(category.salePrice)}</span>
+                        <span className="create-custom-page__price-old">{formatMoney(category.oldPrice)}</span>
+                        {discountText ? (
+                          <span className="create-custom-page__price-off">{discountText}</span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className={`create-custom-page__add-btn ${isSelected ? 'is-added' : ''}`}
+                      aria-pressed={isSelected}
+                      onClick={() => toggleSelected(category.id)}
+                    >
+                      {isSelected ? (
+                        <>
+                          <span className="create-custom-page__add-btn-circle" aria-hidden="true">
+                            <CheckIcon />
+                          </span>
+                          Added
+                        </>
+                      ) : (
+                        'Add'
+                      )}
+                    </button>
+                  </div>
                 </div>
               </article>
             );
@@ -733,110 +687,117 @@ const CreateCustomPackagePage = ({ onBack, onCreatePackage }) => {
         </div>
       </div>
 
-      <footer
-        className="create-custom-page__summary"
-        onWheel={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-        }}
-        onTouchMove={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-        }}
-      >
-        {isViewAllOpen ? (
-          <div className="create-custom-page__selected-list" aria-label="Selected tests">
-            {selectedCategories.map((item) => (
-              <article className="create-custom-page__selected-card" key={item.id}>
-                <div className="create-custom-page__selected-card-top">
-                  <h3 className="create-custom-page__selected-card-title">{item.title}</h3>
-                  <div className="create-custom-page__selected-card-right">
-                    <span className="create-custom-page__selected-card-price">{formatMoney(item.salePrice)}</span>
-                    <button
-                      type="button"
-                      className="create-custom-page__selected-card-remove"
-                      aria-label={`Remove ${item.title}`}
-                      onClick={() => removeSelected(item.id)}
-                    >
-                      <CloseCircleIcon />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="create-custom-page__selected-card-tests">
-                  {testLoadingById[item.id] ? (
-                    <span className="create-custom-page__selected-card-test">Loading tests...</span>
-                  ) : null}
-                  {!testLoadingById[item.id] && item.tests.length === 0 ? (
-                    <span className="create-custom-page__selected-card-test">No tests available</span>
-                  ) : null}
-                  {item.tests.map((test) => (
-                    <span className="create-custom-page__selected-card-test" key={`${item.id}-${test}`}>
-                      <DotIcon />
-                      {test}
-                    </span>
-                  ))}
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="create-custom-page__summary-tags">
-            {visibleTokens.map((token) => (
-              <span className="create-custom-page__summary-tag" key={token.id}>
-                {token.label}
-                <button type="button" aria-label={`Remove ${token.label}`} onClick={() => removeSelected(token.id)}>
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-
-        <div className="create-custom-page__summary-row">
-          <div className="create-custom-page__summary-copy">
-            <span className="create-custom-page__summary-selected">{selectedCount} selected</span>
-            <span className="create-custom-page__summary-dot">•</span>
-            <span className="create-custom-page__summary-total">{formatMoney(totalSale)}</span>
-            <span className="create-custom-page__summary-old">{formatMoney(totalOld)}</span>
-          </div>
-
-          <button
-            type="button"
-            className="create-custom-page__view-all"
-            onClick={() => {
-              const isOpening = !isViewAllOpen;
-              if (isOpening) {
-                void fetchTestsForCategoryIds(Array.from(selectedIds));
-              }
-              setIsViewAllOpen((prev) => !prev);
-            }}
-          >
-            <span>View All</span>
-            <SummaryArrowIcon />
-          </button>
-        </div>
-
-        <button
-          type="button"
-          className="create-custom-page__create-btn"
-          onClick={() => {
-            if (onCreatePackage) {
-              const offPercent = totalOld > 0 ? Math.max(0, Math.round(((totalOld - totalSale) / totalOld) * 100)) : 0;
-              onCreatePackage({
-                selectedCount,
-                selectedParameters,
-                selectedTests: selectedCategories.map((item) => item.title),
-                totalSale,
-                totalOld,
-                offText: offPercent > 0 ? `${offPercent}% OFF` : '',
-              });
+      {hasSummary ? (
+        <div
+          className={`create-custom-page__summary-overlay${isViewAllOpen ? ' is-expanded' : ''}`}
+          onClick={(event) => {
+            if (isViewAllOpen && event.target === event.currentTarget) {
+              setIsViewAllOpen(false);
             }
           }}
         >
-          Create Package
-        </button>
-      </footer>
+          <footer
+            className="create-custom-page__summary"
+            style={{ background: '#06141b' }}
+            onWheel={(event) => {
+              if (isViewAllOpen && event.target.closest('.create-custom-page__selected-list')) {
+                return;
+              }
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onTouchMove={(event) => {
+              if (isViewAllOpen && event.target.closest('.create-custom-page__selected-list')) {
+                return;
+              }
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+          >
+            {isViewAllOpen ? (
+              <div className="create-custom-page__selected-list" aria-label="Selected tests">
+                {selectedCategories.map((item) => (
+                  <article className="create-custom-page__selected-card" key={item.id}>
+                    <div className="create-custom-page__selected-card-top">
+                      <h3 className="create-custom-page__selected-card-title">{item.title}</h3>
+                      <div className="create-custom-page__selected-card-right">
+                        <span className="create-custom-page__selected-card-price">{formatMoney(item.salePrice)}</span>
+                        <button
+                          type="button"
+                          className="create-custom-page__selected-card-remove"
+                          aria-label={`Remove ${item.title}`}
+                          onClick={() => removeSelected(item.id)}
+                        >
+                          <CloseCircleIcon />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="create-custom-page__selected-card-tests">
+                      {testLoadingById[item.id] ? (
+                        <span className="create-custom-page__selected-card-test">Loading tests...</span>
+                      ) : null}
+                      {!testLoadingById[item.id] && item.tests.length === 0 ? (
+                        <span className="create-custom-page__selected-card-test">No tests available</span>
+                      ) : null}
+                      {item.tests.map((test, testIndex) => (
+                        <span className="create-custom-page__selected-card-test" key={`${item.id}-${test}-${testIndex}`}>
+                          <DotIcon />
+                          <span className="create-custom-page__selected-card-test-label">{test}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="create-custom-page__summary-tags">
+                {selectedTokens.map((token) => (
+                  <span className="create-custom-page__summary-tag" key={token.id}>
+                    {token.label}
+                    <button type="button" aria-label={`Remove ${token.label}`} onClick={() => removeSelected(token.id)}>
+                      <CloseCircleIcon />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="create-custom-page__summary-row">
+              <div className="create-custom-page__summary-copy">
+                <span className="create-custom-page__summary-selected">{selectedCount} selected</span>
+                <span className="create-custom-page__summary-dot">•</span>
+                <span className="create-custom-page__summary-total">{formatMoney(totalSale)}</span>
+                <span className="create-custom-page__summary-old">{formatMoney(totalOld)}</span>
+              </div>
+
+              <button
+                type="button"
+                className="create-custom-page__view-all"
+                onClick={() => {
+                  const isOpening = !isViewAllOpen;
+                  if (isOpening) {
+                    void fetchTestsForCategoryIds(Array.from(selectedIds));
+                  }
+                  setIsViewAllOpen((prev) => !prev);
+                }}
+              >
+                <span>View All</span>
+                {isViewAllOpen ? <ChevronDownIcon color="#E6F6F4" /> : <ChevronUpIcon color="#E6F6F4" />}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="create-custom-page__create-btn"
+              disabled
+              aria-disabled="true"
+            >
+              Book Tests
+            </button>
+          </footer>
+        </div>
+      ) : null}
     </div>
   );
 };

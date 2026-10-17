@@ -25,8 +25,6 @@
   padding: 0;
   box-sizing: border-box;
   height: 56px;
-  position: static;
-  margin-top: 0;
 }
 
 .create-custom-page__header-left {
@@ -124,7 +122,6 @@
 }
 
 .create-custom-page__pills {
-  
   display: flex;
   align-items: center;
   gap: 12px;
@@ -179,45 +176,103 @@
   font-weight: 400;
 }
 
-.create-custom-page__pill.is-active::before {
-  content: none;
-}
-
 .create-custom-page__content {
   width: 100%;
   min-height: 100%;
   box-sizing: border-box;
-  padding: 179px 16px 236px;
+  padding: 179px 20px 40px;
   overflow-y: auto;
+  transition: padding-top 280ms ease, padding-bottom 280ms ease;
 }
 
 .create-custom-page--search-open .create-custom-page__content {
   padding-top: 223px;
-  transition: padding-top 280ms ease;
 }
 
-.create-custom-page__content {
-  transition: padding-top 280ms ease;
+.create-custom-page--has-summary .create-custom-page__content {
+  padding-bottom: 220px;
+}
+
+.create-custom-page--view-all-open.create-custom-page--has-summary .create-custom-page__content {
+  padding-bottom: 60vh;
 }
 
 .create-custom-page__cards {
-  margin-top: 0px;
+  margin-top: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .create-custom-page__card {
   position: relative;
   display: flex;
-  padding: 16px;
   flex-direction: column;
   align-items: flex-start;
   align-self: stretch;
-  gap: 12px;
+  width: 100%;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: linear-gradient(118deg, rgba(124, 58, 237, 0.14) 0.01%, rgba(47, 210, 176, 0.20) 99.99%);
+  outline: 1px solid rgba(255, 255, 255, 0.2);
+  outline-offset: -1px;
+  background: linear-gradient(187deg, #001716 0%, rgba(0, 0, 0, 0.25) 100%);
+  box-shadow:
+    0 12px 40px rgba(87, 139, 120, 0.15),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 24px 48px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.create-custom-page__card--status {
+  padding: 16px;
+  outline: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/*
+  Object_custom.png — tall, leaf cluster at bottom-right.
+  1) Shift up by full height so that bottom-right sits on the card’s top-right.
+  2) rotate(-90deg) left once around that corner → cluster stays top-right,
+     foliage extends left along the top of the card.
+*/
+.create-custom-page__card-leaf {
+  position: absolute;
+  width: 64px;
+  aspect-ratio: 421 / 790;
+  height: auto;
+  right: 0;
+  top: calc(-64px * 790 / 421);
+  transform: rotate(-90deg);
+  transform-origin: bottom right;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.7;
+  filter: brightness(0.75);
+  mix-blend-mode: screen;
+}
+
+/* Organ art — 10px further left than before; sized to avoid card clipping. */
+.create-custom-page__card-art {
+  position: absolute;
+  width: 118px;
+  max-width: 34%;
+  height: auto;
+  max-height: 84px;
+  right: 38px;
+  top: 4px;
+  object-fit: contain;
+  object-position: top right;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.create-custom-page__card-body {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   box-sizing: border-box;
 }
 
@@ -226,43 +281,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  align-self: stretch;
   gap: 12px;
-}
-
-.create-custom-page__card-heading {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-  min-width: 0;
-}
-
-.create-custom-page__card-icon {
-  display: flex;
-  width: 32px;
-  height: 32px;
-  justify-content: center;
-  align-items: center;
-  aspect-ratio: 1 / 1;
-  border-radius: 10px;
-  border: 1px solid rgba(196, 196, 196, 0.20);
-  flex-shrink: 0;
-  box-sizing: border-box;
-}
-
-.create-custom-page__card-icon-img {
-  width: 20px;
-  height: 20px;
-  display: block;
-  background-color: #c4c4c4;
-  -webkit-mask: var(--card-icon-url) no-repeat center / contain;
-  mask: var(--card-icon-url) no-repeat center / contain;
-  transition: background-color 180ms ease;
-}
-
-.create-custom-page__card.is-selected .create-custom-page__card-icon-img {
-  background-color: #90df9e;
 }
 
 .create-custom-page__card-title {
@@ -271,22 +290,17 @@
   font-family: "DM Sans", sans-serif;
   font-size: 16px;
   font-style: normal;
-  font-weight: 500;
+  font-weight: 700;
   line-height: normal;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transition: color 180ms ease;
-}
-
-.create-custom-page__card.is-selected .create-custom-page__card-title {
-  color: #90df9e;
 }
 
 .create-custom-page__expand-btn {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border: 0;
   background: transparent;
   padding: 0;
@@ -303,7 +317,7 @@
   flex-wrap: wrap;
   row-gap: 8px;
   column-gap: 8px;
-  align-self: stretch;
+  align-content: center;
   box-sizing: border-box;
 }
 
@@ -312,14 +326,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 3px 8px;
+  padding: 2px 8px;
   border-radius: 30px;
-  /* 0.5px hairlines clip on many phone GPUs; keep a full 1px ring */
-  border: 1px solid #c4c4c4;
+  outline: 0.5px solid rgba(144, 223, 158, 0.5);
+  outline-offset: -0.5px;
   background: transparent;
   box-sizing: border-box;
-  -webkit-appearance: none;
-  transform: translateZ(0);
   color: #c4c4c4;
   text-align: center;
   font-family: "DM Sans", sans-serif;
@@ -327,13 +339,7 @@
   font-style: normal;
   font-weight: 400;
   line-height: 14px;
-  letter-spacing: var(--Static-Label-Large-Tracking, 0.1px);
-}
-
-.create-custom-page__card.is-selected .create-custom-page__test-item {
-  border: 1px solid #90df9e;
-  background: transparent;
-  color: #c4c4c4;
+  letter-spacing: 0.1px;
 }
 
 .create-custom-page__card-bottom {
@@ -341,7 +347,6 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  align-self: stretch;
   gap: 12px;
 }
 
@@ -349,8 +354,9 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
+  gap: 8px;
   min-width: 0;
+  width: 135px;
 }
 
 .create-custom-page__card-parameters {
@@ -364,7 +370,9 @@
 
 .create-custom-page__price-row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .create-custom-page__price-now {
@@ -377,7 +385,6 @@
 }
 
 .create-custom-page__price-old {
-  margin-left: 6px;
   color: #ccc;
   font-family: "DM Sans", sans-serif;
   font-size: 11px;
@@ -388,7 +395,6 @@
 }
 
 .create-custom-page__price-off {
-  margin-left: 6px;
   color: #90df9e;
   font-family: "DM Sans", sans-serif;
   font-size: 11px;
@@ -399,6 +405,8 @@
 
 .create-custom-page__add-btn {
   display: inline-flex;
+  width: 88px;
+  height: 31px;
   padding: 10px 24px;
   justify-content: center;
   align-items: center;
@@ -417,10 +425,13 @@
   letter-spacing: 0.24px;
   cursor: pointer;
   flex-shrink: 0;
+  box-sizing: border-box;
   transition: background 180ms ease, border-color 180ms ease;
 }
 
 .create-custom-page__add-btn.is-added {
+  width: auto;
+  min-width: 88px;
   border: 1px solid #90df9e;
   background: transparent;
   box-shadow: 0 12px 20px 0 rgba(255, 255, 255, 0.15);
@@ -439,38 +450,62 @@
   justify-content: center;
 }
 
-.create-custom-page__summary {
+/*
+  Same glass as Select members:
+  .patient-select-overlay + .patient-select-overlay__sheet
+*/
+.create-custom-page__summary-overlay {
   position: fixed;
   left: 0;
   right: 0;
+  top: 0;
   bottom: 0;
   z-index: 80;
   display: flex;
-  padding: 24px 24px 12px;
   flex-direction: column;
-  align-items: flex-start;
+  justify-content: flex-end;
+  background: transparent;
+  pointer-events: none;
+  overscroll-behavior: contain;
+}
+
+.create-custom-page__summary-overlay.is-expanded {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  pointer-events: auto;
+}
+
+.create-custom-page__summary {
+  position: relative;
+  display: flex;
+  padding: 20px;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  align-self: stretch;
   gap: 12px;
   border-radius: 24px 24px 0 0;
-  border-top: 1px solid rgba(0, 0, 0, 0.03);
-  background: linear-gradient(118deg, rgba(124, 58, 237, 0.07) 0.01%, rgba(47, 210, 176, 0.1) 99.99%), linear-gradient(180deg, rgba(255, 72, 176, 0.1) 0.35%, rgba(0, 0, 0, 0) 99.65%);
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
+  border: none;
+  border-top: 1px solid rgba(153, 153, 153, 0.5);
+  /* Solid page color — no see-through cards/text behind the bar */
+  background: #06141b;
   box-sizing: border-box;
   overflow: visible;
   overscroll-behavior: none;
-  touch-action: none;
+  pointer-events: auto;
 }
 
 .create-custom-page--view-all-open .create-custom-page__summary {
   height: auto;
   max-height: 80vh;
-  overflow: hidden;
 }
 
 .create-custom-page__summary-tags {
   display: flex;
   width: 100%;
-  align-items: flex-start;
+  max-width: 312px;
+  align-items: center;
   flex-wrap: wrap;
   gap: 6px;
   overflow: visible;
@@ -478,6 +513,7 @@
 
 .create-custom-page__selected-list {
   width: 100%;
+  max-width: 312px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -490,19 +526,20 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   padding-right: 2px;
 }
 
 .create-custom-page__selected-card {
   display: flex;
-  padding: 12px;
+  padding: 16px;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 12px;
   align-self: stretch;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  background: rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.2);
   box-sizing: border-box;
 }
 
@@ -516,11 +553,13 @@
 
 .create-custom-page__selected-card-title {
   margin: 0;
-  color: #e6f6f4;
-  font-family: Inter, sans-serif;
+  flex: 1;
+  min-width: 0;
+  color: #fff;
+  font-family: "DM Sans", sans-serif;
   font-size: 15px;
   font-style: normal;
-  font-weight: 400;
+  font-weight: 500;
   line-height: normal;
 }
 
@@ -528,14 +567,15 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .create-custom-page__selected-card-price {
   color: #90df9e;
-  font-family: Inter, sans-serif;
-  font-size: 12px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 14px;
   font-style: normal;
-  font-weight: 400;
+  font-weight: 500;
   line-height: normal;
 }
 
@@ -556,6 +596,7 @@
   flex-shrink: 0;
 }
 
+/* Max 3 per row; leftovers wrap to the next line */
 .create-custom-page__selected-card-tests {
   width: 100%;
   display: flex;
@@ -565,55 +606,62 @@
 }
 
 .create-custom-page__selected-card-test {
-  flex: 0 1 auto;
+  /* Prefer up to 3/row; grow to full name width so 2/row is fine when longer */
+  flex: 1 1 calc((100% - 24px) / 3);
+  min-width: max-content;
+  max-width: 100%;
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 0;
-  min-height: 20px;
-  padding: 2px 8px;
-  border-radius: 30px;
-  border: 0.5px solid rgba(144, 223, 158, 0.8);
-  background: rgba(144, 223, 158, 0.22);
-  box-shadow: 0 0 12px rgba(144, 223, 158, 0.45);
-  color: #f3fff8;
-  font-family: Inter, sans-serif;
-  font-size: 13px;
+  gap: 10px;
+  color: #e6eef0;
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
   font-style: normal;
-  font-weight: 400;
+  font-weight: 500;
   line-height: normal;
+  white-space: nowrap;
 }
 
 .create-custom-page__selected-card-test svg {
-  display: none;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+}
+
+.create-custom-page__selected-card-test-label {
+  white-space: nowrap;
 }
 
 .create-custom-page__summary-tag {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 2px 8px;
+  gap: 6px;
+  padding: 6px 12px;
   border-radius: 999px;
-  border: 0.5px solid rgba(144, 223, 158, 0.8);
-  background: rgba(144, 223, 158, 0.22);
-  box-shadow: 0 0 12px rgba(144, 223, 158, 0.45);
-  color: #f3fff8;
+  outline: 1px solid rgba(255, 255, 255, 0.05);
+  outline-offset: -1px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #e6f6f4;
   font-family: "DM Sans", sans-serif;
   font-size: 13px;
   font-style: normal;
   font-weight: 400;
   line-height: normal;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .create-custom-page__summary-tag button {
   border: 0;
   background: transparent;
-  color: #8c9b99;
-  font-size: 24px;
-  line-height: 14px;
   padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  width: 16px;
+  height: 16px;
 }
 
 .create-custom-page__summary-row {
@@ -626,7 +674,7 @@
 
 .create-custom-page__summary-copy {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   min-width: 0;
 }
@@ -689,10 +737,17 @@
   white-space: nowrap;
 }
 
+.create-custom-page__view-all svg {
+  width: 16px;
+  height: 16px;
+}
+
 .create-custom-page__create-btn {
   display: flex;
   width: 100%;
-  height: 48px;
+  max-width: 320px;
+  height: 40px;
+  padding: 10px 24px;
   justify-content: center;
   align-items: center;
   border-radius: 36px;
@@ -707,10 +762,24 @@
   font-weight: 600;
   line-height: normal;
   letter-spacing: 0.28px;
-  cursor: pointer;
+  cursor: not-allowed;
+  opacity: 0.45;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.create-custom-page__create-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 @media (max-width: 360px) {
+  .create-custom-page__content {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
   .create-custom-page__summary {
     padding-left: 16px;
     padding-right: 16px;

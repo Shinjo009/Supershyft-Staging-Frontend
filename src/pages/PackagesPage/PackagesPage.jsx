@@ -332,6 +332,12 @@ const SearchIcon = ({ stroke = 'white' }) => (
   </svg>
 );
 
+const CustomPackageIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path d="M8 3.333V12.667M3.333 8H12.667" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 const normalizeBadgeToken = (value) => String(value || '').trim().toLowerCase();
 
 const getInitialPackageCardsFromCache = () => {
@@ -795,7 +801,7 @@ const PackagesPage = ({
           />
         </div>
 
-        {/* <section className="packages-page__custom-row" aria-label="Package search and custom package">
+        <section className="packages-page__custom-row" aria-label="Create custom package">
           <button
             type="button"
             className="packages-page__custom-btn"
@@ -810,7 +816,7 @@ const PackagesPage = ({
             <span>Create Custom Package</span>
             <CustomPackageIcon />
           </button>
-        </section> */}
+        </section>
 
         <section className="packages-page__filters" aria-label="Package filters">
           {filterChips.map((filter) => {
