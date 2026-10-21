@@ -326,6 +326,67 @@ export const listDiagnosticTestGroups = async (filterChip, _payload) => {
   return [];
 };
 
+export const createDiagnosticPackage = async (payload = {}) => {
+  const response = await authorizedRequest('/diagnostic-packages', {
+    method: 'POST',
+    payload,
+  });
+
+  if (response?.data && typeof response.data === 'object') {
+    return response.data;
+  }
+
+  if (response && typeof response === 'object') {
+    return response;
+  }
+
+  return null;
+};
+
+export const assignGroupsToPackage = async (packageId, groupIds) => {
+  const parsedId = Number(packageId);
+
+  if (!Number.isFinite(parsedId) || parsedId <= 0) {
+    throw new Error('Invalid diagnostic package id.');
+  }
+
+  const ids = (Array.isArray(groupIds) ? groupIds : [])
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id) && id > 0);
+
+  if (ids.length === 0) {
+    throw new Error('Select at least one test group.');
+  }
+
+  const response = await authorizedRequest(`/diagnostic-packages/${parsedId}/test-groups`, {
+    method: 'POST',
+    payload: { group_ids: ids },
+  });
+
+  if (response?.data && typeof response.data === 'object') {
+    return response.data;
+  }
+
+  return response;
+};
+
+export const removeGroupFromPackage = async (packageId, groupId) => {
+  const parsedPackageId = Number(packageId);
+  const parsedGroupId = Number(groupId);
+
+  if (!Number.isFinite(parsedPackageId) || parsedPackageId <= 0) {
+    throw new Error('Invalid diagnostic package id.');
+  }
+
+  if (!Number.isFinite(parsedGroupId) || parsedGroupId <= 0) {
+    throw new Error('Invalid diagnostic test group id.');
+  }
+
+  await authorizedRequest(`/diagnostic-packages/${parsedPackageId}/test-groups/${parsedGroupId}`, {
+    method: 'DELETE',
+  });
+};
+
 export const listDiagnosticTestGroupTests = async (groupId, _payload) => {
   const parsedId = Number(groupId);
 

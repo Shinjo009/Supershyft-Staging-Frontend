@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import './CreateCustomPackagePage.css';
 import {
   listDiagnosticPackageFilterChips,
@@ -224,6 +224,8 @@ const CloseCircleIcon = () => (
   </svg>
 );
 
+const PatientSelectionOverlay = lazy(() => import('../../components/PatientSelectionOverlay'));
+
 const formatMoney = (value) => `₹${value}/-`;
 
 const getDiscountText = (category) => {
@@ -268,6 +270,7 @@ const normalizeFilterChips = (rows) => {
 };
 
 const CreateCustomPackagePage = ({ onBack }) => {
+  const [isPatientOverlayOpen, setIsPatientOverlayOpen] = useState(false);
   const [filterChips, setFilterChips] = useState([ALL_CHIP]);
   const [activeChipKey, setActiveChipKey] = useState('all');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -512,6 +515,23 @@ const CreateCustomPackagePage = ({ onBack }) => {
   };
 
   const hasSummary = selectedCount > 0;
+  const canBookTests = selectedCategories.some((item) => Number(item.groupId) > 0);
+
+  const initialCustomGroups = useMemo(
+    () => selectedCategories
+      .filter((item) => Number(item.groupId) > 0)
+      .map((item) => ({
+        id: item.id,
+        groupId: item.groupId,
+        title: item.title,
+        salePrice: item.salePrice,
+        oldPrice: item.oldPrice,
+        tags: item.tags,
+        tests: item.tests,
+        testsLoaded: item.testsLoaded,
+      })),
+    [selectedCategories],
+  );
 
   return (
     <div className={`create-custom-page ${isSearchOpen ? 'create-custom-page--search-open' : ''} ${isViewAllOpen ? 'create-custom-page--view-all-open' : ''} ${hasSummary ? 'create-custom-page--has-summary' : ''}`}>
@@ -790,13 +810,29 @@ const CreateCustomPackagePage = ({ onBack }) => {
             <button
               type="button"
               className="create-custom-page__create-btn"
-              disabled
-              aria-disabled="true"
+              disabled={!canBookTests}
+              aria-disabled={!canBookTests}
+              onClick={() => {
+                if (canBookTests) {
+                  setIsPatientOverlayOpen(true);
+                }
+              }}
             >
               Book Tests
             </button>
           </footer>
         </div>
+      ) : null}
+
+      {isPatientOverlayOpen ? (
+        <Suspense fallback={null}>
+          <PatientSelectionOverlay
+            open={isPatientOverlayOpen}
+            customFlow
+            initialCustomGroups={initialCustomGroups}
+            onClose={() => setIsPatientOverlayOpen(false)}
+          />
+        </Suspense>
       ) : null}
     </div>
   );

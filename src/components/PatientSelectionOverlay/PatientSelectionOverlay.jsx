@@ -5,9 +5,15 @@ import femaleAvatar from '../../images/female-avatar.png';
 import { getMyProfiles, createMySubProfile, invalidateMyProfilesCache } from '../../services/usersService';
 import { createMyAddress, getMyProfile, listMyAddresses } from '../../services/profileService';
 import {
+  assignGroupsToPackage,
+  createDiagnosticPackage,
+  getDiagnosticPackageTests,
   listDiagnosticPackages,
   listDiagnosticPackageFilterChips,
+  listDiagnosticTestGroups,
+  listDiagnosticTestGroupTests,
   listPublicDiagnosticPackageFilterChips,
+  removeGroupFromPackage,
 } from '../../services/diagnosticPackagesService';
 import {
   loadRazorpayScript,
@@ -59,32 +65,111 @@ import PackageDetailsPage from '../../pages/PackageDetailsPage/PackageDetailsPag
 
 const PATIENTS = [];
 
-const CUSTOM_TEST_CARDS = [
-  {
-    id: 'thyroid-tests',
-    title: 'Thyroid Tests',
-    salePrice: 249,
-    oldPrice: 449,
-    tags: ['General Health'],
-    tests: ['Bilirubin', 'Albumin', 'SGOT', 'SGPT', 'ALP'],
-  },
-  {
-    id: 'liver-function',
-    title: 'Liver Function',
-    salePrice: 149,
-    oldPrice: 349,
-    tags: ['General Health'],
-    tests: ['Bilirubin', 'Albumin', 'SGOT', 'SGPT', 'ALP'],
-  },
-  {
-    id: 'liver-function-plus',
-    title: 'Liver Function',
-    salePrice: 349,
-    oldPrice: 549,
-    tags: ['General Health'],
-    tests: ['Bilirubin', 'Albumin', 'SGOT', 'SGPT', 'ALP'],
-  },
-];
+const toCustomGroupNumericId = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+};
+
+const normalizeCustomGroupCard = (row, index = 0) => {
+  if (!row || typeof row !== 'object') {
+    return null;
+  }
+
+  const title = String(
+    row.title
+    || row.group_name
+    || row.test_group_name
+    || row.name
+    || `Test Group ${index + 1}`
+  ).trim();
+  const groupId = toCustomGroupNumericId(
+    row.groupId
+    ?? row.group_id
+    ?? row.diagnostic_test_group_id
+    ?? row.test_group_id
+    ?? row.id
+  );
+  const id = String(row.id || (groupId ? `test-group-${groupId}` : `test-group-${index}`)).trim();
+  const salePrice = Math.max(0, Math.round(Number(row.salePrice ?? row.price ?? row.sale_price ?? 0) || 0));
+  const oldPriceCandidate = Math.max(0, Math.round(Number(row.oldPrice ?? row.original_price ?? row.old_price ?? salePrice) || 0));
+  const tags = Array.isArray(row.tags)
+    ? row.tags.map((tag) => {
+      if (typeof tag === 'string' || typeof tag === 'number') {
+        return String(tag).trim();
+      }
+      return String(tag?.display_name || tag?.chip_key || tag?.name || tag?.tag_name || '').trim();
+    }).filter(Boolean)
+    : Array.isArray(row.filter_chips)
+      ? row.filter_chips.map((chip) => String(chip?.display_name || chip?.chip_key || chip?.name || '').trim()).filter(Boolean)
+      : [];
+  const tests = Array.isArray(row.tests)
+    ? row.tests.map((test) => {
+      if (typeof test === 'string' || typeof test === 'number') {
+        return String(test).trim();
+      }
+      return String(test?.test_name || test?.parameter_name || test?.name || test?.title || '').trim();
+    }).filter(Boolean)
+    : [];
+
+  return {
+    id,
+    groupId,
+    title,
+    salePrice,
+    oldPrice: oldPriceCandidate >= salePrice ? oldPriceCandidate : salePrice,
+    tags,
+    tests,
+    testsLoaded: Boolean(row.testsLoaded) || tests.length > 0,
+  };
+};
+
+const mergeCustomGroupCards = (current, incoming) => {
+  const map = new Map();
+  [...(Array.isArray(current) ? current : []), ...(Array.isArray(incoming) ? incoming : [])]
+    .map((row, index) => normalizeCustomGroupCard(row, index))
+    .filter(Boolean)
+    .forEach((card) => {
+      const existing = map.get(card.id);
+      if (!existing) {
+        map.set(card.id, card);
+        return;
+      }
+      map.set(card.id, {
+        ...existing,
+        ...card,
+        tests: card.tests.length > 0 ? card.tests : existing.tests,
+        testsLoaded: card.testsLoaded || existing.testsLoaded,
+      });
+    });
+  return Array.from(map.values());
+};
+
+const toGroupSetKey = (groupIds) => (
+  (Array.isArray(groupIds) ? groupIds : [])
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id) && id > 0)
+    .sort((a, b) => a - b)
+    .join(',')
+);
+
+const extractAssignedGroupIds = (payload) => {
+  const groups = Array.isArray(payload?.groups) ? payload.groups : [];
+  return groups
+    .map((group) => toCustomGroupNumericId(group?.group_id ?? group?.diagnostic_test_group_id ?? group?.id))
+    .filter(Boolean);
+};
+
+const getPossessiveLabel = (name) => {
+  const trimmed = String(name || '').trim() || 'User';
+  return trimmed.toLowerCase().endsWith('s') ? `${trimmed}'` : `${trimmed}'s`;
+};
+
+const formatCustomGroupNames = (groups) => (
+  (Array.isArray(groups) ? groups : [])
+    .map((item) => String(item?.title || '').trim())
+    .filter(Boolean)
+    .join(' • ')
+);
 
 const PACKAGE_OPTIONS = [
   {
@@ -836,6 +921,7 @@ const PatientSelectionOverlay = ({
   onClose,
   customFlow = false,
   initialPackage = null,
+  initialCustomGroups = [],
   draftEngagement = null,
   onBookingConfirmed,
 }) => {
@@ -881,8 +967,15 @@ const PatientSelectionOverlay = ({
   const [customActiveFilterKey, setCustomActiveFilterKey] = useState('all');
   const [customFilterChips, setCustomFilterChips] = useState([OVERLAY_ALL_FILTER]);
   const [customSearchQuery, setCustomSearchQuery] = useState('');
-  const [customExpandedIds, setCustomExpandedIds] = useState(() => new Set(['thyroid-tests', 'liver-function']));
-  const [customSelectedIds, setCustomSelectedIds] = useState(() => new Set(['thyroid-tests', 'liver-function']));
+  const [customGroupCards, setCustomGroupCards] = useState([]);
+  const [defaultCustomGroupIds, setDefaultCustomGroupIds] = useState([]);
+  const [selectedGroupIdsByPatientId, setSelectedGroupIdsByPatientId] = useState({});
+  const [customExpandedIds, setCustomExpandedIds] = useState(() => new Set());
+  const [customSelectedIds, setCustomSelectedIds] = useState(() => new Set());
+  const [customPackageCards, setCustomPackageCards] = useState([]);
+  const [customPersisting, setCustomPersisting] = useState(false);
+  const [customPersistError, setCustomPersistError] = useState('');
+  const [customTestLoadingById, setCustomTestLoadingById] = useState({});
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState(null);
@@ -892,6 +985,7 @@ const PatientSelectionOverlay = ({
   const [bioBookingError, setBioBookingError] = useState('');
   const [confirmedBookingId, setConfirmedBookingId] = useState(null);
   const [paymentOutcome, setPaymentOutcome] = useState('success');
+  const [resultPhase, setResultPhase] = useState(null);
   const [packageCardsFromApi, setPackageCardsFromApi] = useState([]);
   const [packageFilterChips, setPackageFilterChips] = useState([OVERLAY_ALL_FILTER]);
   const [packageDetailsCard, setPackageDetailsCard] = useState(null);
@@ -954,7 +1048,17 @@ const PatientSelectionOverlay = ({
       setBioBookingError('');
       setConfirmedBookingId(null);
       setPaymentOutcome('success');
+      setResultPhase(null);
       setPackageTargetPatientId(null);
+      setCustomGroupCards([]);
+      setDefaultCustomGroupIds([]);
+      setSelectedGroupIdsByPatientId({});
+      setCustomExpandedIds(new Set());
+      setCustomSelectedIds(new Set());
+      setCustomPackageCards([]);
+      setCustomPersisting(false);
+      setCustomPersistError('');
+      setCustomTestLoadingById({});
       packageManuallyChangedRef.current = false;
       paymentSuccessRef.current = false;
       paymentHandlerInvokedRef.current = false;
@@ -1003,25 +1107,46 @@ const PatientSelectionOverlay = ({
       return;
     }
 
+    const seeded = mergeCustomGroupCards([], initialCustomGroups);
+    const seededIds = seeded.map((item) => item.id);
+    setCustomGroupCards(seeded);
+    setDefaultCustomGroupIds(seededIds);
+    setSelectedGroupIdsByPatientId({
+      [PENDING_ADD_PATIENT_ID]: seededIds,
+    });
+    setCustomSelectedIds(new Set(seededIds));
+    setCustomExpandedIds(new Set());
+    setCustomPackageCards([]);
+    setCustomPersistError('');
+
     let mounted = true;
-    const loadCustomFilterChips = async () => {
+    const loadCustomCatalog = async () => {
       try {
-        const rows = await listDiagnosticPackageFilterChips({ chip_for: 'custom_package' });
+        const [chipRows, groupRows] = await Promise.all([
+          listDiagnosticPackageFilterChips({ chip_for: 'custom_package' }),
+          listDiagnosticTestGroups(),
+        ]);
         if (!mounted) {
           return;
         }
-        const normalized = normalizeFilterChipRows(rows);
-        setCustomFilterChips(normalized.length > 0 ? normalized : [OVERLAY_ALL_FILTER]);
+        const normalizedChips = normalizeFilterChipRows(chipRows);
+        setCustomFilterChips(normalizedChips.length > 0 ? normalizedChips : [OVERLAY_ALL_FILTER]);
+        const catalog = (Array.isArray(groupRows) ? groupRows : [])
+          .map((row, index) => normalizeCustomGroupCard(row, index))
+          .filter((row) => row && row.groupId && row.salePrice > 0);
+        setCustomGroupCards((prev) => mergeCustomGroupCards(catalog, prev));
       } catch {
         if (mounted) {
           setCustomFilterChips([OVERLAY_ALL_FILTER]);
         }
       }
     };
-    loadCustomFilterChips();
+    loadCustomCatalog();
     return () => {
       mounted = false;
     };
+    // Seed from the builder only when the overlay opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, customFlow]);
 
   useEffect(() => {
@@ -1038,6 +1163,7 @@ const PatientSelectionOverlay = ({
     if (view === 'payment') {
       setPaymentError(null);
       setPaymentOutcome('success');
+      setResultPhase(null);
     }
   }, [view]);
 
@@ -1261,16 +1387,31 @@ const PatientSelectionOverlay = ({
 
   const packageById = useMemo(() => {
     const map = new Map();
-    sourcePackages.forEach((item) => {
+    [...sourcePackages, ...customPackageCards].forEach((item) => {
       map.set(normalizePackageId(item.id), item);
     });
     return map;
-  }, [sourcePackages]);
+  }, [customPackageCards, sourcePackages]);
 
   const getPackageForPatient = useCallback((patientId) => {
     const mappedPackageId = normalizePackageId(selectedPackageByPatientId[patientId]);
     return packageById.get(mappedPackageId) || selectedPackage;
   }, [packageById, selectedPackageByPatientId, selectedPackage]);
+
+  const getCustomGroupsForPatient = useCallback((patientId) => {
+    const mappedIds = Array.isArray(selectedGroupIdsByPatientId[patientId])
+      ? selectedGroupIdsByPatientId[patientId]
+      : defaultCustomGroupIds;
+    const cardMap = new Map(customGroupCards.map((item) => [item.id, item]));
+    return mappedIds.map((id) => cardMap.get(id)).filter(Boolean);
+  }, [customGroupCards, defaultCustomGroupIds, selectedGroupIdsByPatientId]);
+
+  const getCustomPriceForPatient = useCallback((patientId) => {
+    const groups = getCustomGroupsForPatient(patientId);
+    const current = groups.reduce((sum, item) => sum + Number(item.salePrice || 0), 0);
+    const old = groups.reduce((sum, item) => sum + Number(item.oldPrice || item.salePrice || 0), 0);
+    return { current, old };
+  }, [getCustomGroupsForPatient]);
 
   useEffect(() => {
     if (!open) {
@@ -1553,24 +1694,16 @@ const PatientSelectionOverlay = ({
   const canContinue = selectedCount > 0;
 
   const customSelectedCards = useMemo(
-    () => CUSTOM_TEST_CARDS.filter((item) => customSelectedIds.has(item.id)),
-    [customSelectedIds],
+    () => customGroupCards.filter((item) => customSelectedIds.has(item.id)),
+    [customGroupCards, customSelectedIds],
   );
 
   const selectedText = useMemo(() => {
     if (selectedCount === 1) {
       return '1 patient selected';
     }
-    return `${selectedCount} members selected`;
-  }, [selectedCount]);
-
-  const customPackagePrice = useMemo(() => {
-    const current = customSelectedCards.reduce((sum, item) => sum + item.salePrice, 0);
-    const old = customSelectedCards.reduce((sum, item) => sum + item.oldPrice, 0);
-    const off = old > 0 ? Math.round(((old - current) / old) * 100) : 0;
-
-    return { current, old, off };
-  }, [customSelectedCards]);
+    return customFlow ? `${selectedCount} patients selected` : `${selectedCount} members selected`;
+  }, [customFlow, selectedCount]);
 
   const selectedPatients = useMemo(() => {
     if (selectedIds.length <= 0) {
@@ -1587,10 +1720,17 @@ const PatientSelectionOverlay = ({
     }
 
     if (customFlow) {
+      const totals = selectedPatients.reduce((acc, patient) => {
+        const price = getCustomPriceForPatient(patient.id);
+        acc.current += price.current;
+        acc.old += price.old;
+        return acc;
+      }, { current: 0, old: 0 });
+      const off = totals.old > 0 ? Math.round(((totals.old - totals.current) / totals.old) * 100) : 0;
       return {
-        current: customPackagePrice.current * selectedCount,
-        old: customPackagePrice.old * selectedCount,
-        off: customPackagePrice.off,
+        current: totals.current,
+        old: totals.old,
+        off,
       };
     }
 
@@ -1609,7 +1749,7 @@ const PatientSelectionOverlay = ({
       old: totals.old,
       off,
     };
-  }, [selectedCount, selectedPatients, customFlow, customPackagePrice, getPackageForPatient]);
+  }, [selectedCount, selectedPatients, customFlow, getCustomPriceForPatient, getPackageForPatient]);
 
   const paymentBreakdown = useMemo(() => {
     const current = pricing?.current ?? 0;
@@ -1715,7 +1855,7 @@ const PatientSelectionOverlay = ({
         activeFilterKey.replace(/_/g, ' '),
       ].filter(Boolean);
 
-    return CUSTOM_TEST_CARDS.filter((item) => {
+    return customGroupCards.filter((item) => {
       const inTag = activeFilterKey === 'all'
         ? true
         : item.tags.some((tag) => {
@@ -1734,7 +1874,7 @@ const PatientSelectionOverlay = ({
       const testsText = item.tests.join(' ').toLowerCase();
       return item.title.toLowerCase().includes(normalizedCustomQuery) || testsText.includes(normalizedCustomQuery);
     });
-  }, [customActiveFilterKey, customFilterTabs, normalizedCustomQuery]);
+  }, [customActiveFilterKey, customFilterTabs, customGroupCards, normalizedCustomQuery]);
 
   const customSelectedNames = useMemo(
     () => customSelectedCards.map((item) => item.title.split(' ')[0]).join(', '),
@@ -1820,7 +1960,7 @@ const PatientSelectionOverlay = ({
 
   const handleDetailsContinueToPayment = () => {
     setBioBookingError('');
-    if (!BACKEND_ENABLED || customFlow) {
+    if (!BACKEND_ENABLED) {
       setView('payment');
       return;
     }
@@ -1871,13 +2011,10 @@ const PatientSelectionOverlay = ({
     paymentHandlerInvokedRef.current = false;
     setPaymentSubmitting(true);
     try {
-      if (customFlow) {
-        throw new Error('Select a valid diagnostic package before payment.');
-      }
-
       if (PAYMENT_DEMO_MODE && !BACKEND_ENABLED) {
         setConfirmedBookingId(`DEMO-${Date.now().toString(36).toUpperCase()}`);
         setPaymentOutcome('success');
+        setResultPhase('success');
         paymentSuccessRef.current = true;
         setView('confirmed');
         if (typeof onBookingConfirmed === 'function') {
@@ -1937,6 +2074,7 @@ const PatientSelectionOverlay = ({
                 || '—',
               );
               setPaymentOutcome('success');
+              setResultPhase('success');
               setPaymentError(null);
               setView('confirmed');
               if (typeof onBookingConfirmed === 'function') {
@@ -1951,6 +2089,7 @@ const PatientSelectionOverlay = ({
                 || '—',
               );
               setPaymentOutcome(paymentWasVerified ? 'booking_failed' : 'payment_failed');
+              setResultPhase(paymentWasVerified ? null : 'failure');
               setPaymentError(
                 paymentWasVerified
                   ? (err?.message || 'Payment succeeded but lab booking could not be confirmed. Contact support with your payment ID.')
@@ -1970,6 +2109,7 @@ const PatientSelectionOverlay = ({
 
             setConfirmedBookingId(order.bookingIds?.[0] || order.orderId || '—');
             setPaymentOutcome('payment_failed');
+            setResultPhase('failure');
             setPaymentError('Payment was cancelled or could not be completed.');
             setView('confirmed');
             setPaymentSubmitting(false);
@@ -1985,6 +2125,7 @@ const PatientSelectionOverlay = ({
           || 'Payment could not be completed.';
         setConfirmedBookingId(order.bookingIds?.[0] || order.orderId || '—');
         setPaymentOutcome('payment_failed');
+        setResultPhase('failure');
         setPaymentError(reason);
         setView('confirmed');
         setPaymentSubmitting(false);
@@ -1992,6 +2133,9 @@ const PatientSelectionOverlay = ({
       rzp.open();
     } catch (err) {
       setPaymentError(err.message || 'Could not start payment.');
+      setPaymentOutcome('payment_failed');
+      setResultPhase('failure');
+      setView('confirmed');
       setPaymentSubmitting(false);
     }
   };
@@ -2003,6 +2147,17 @@ const PatientSelectionOverlay = ({
       }
       return [...prev, patientId];
     });
+    if (customFlow) {
+      setSelectedGroupIdsByPatientId((prev) => {
+        if (Array.isArray(prev[patientId]) && prev[patientId].length > 0) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [patientId]: [...defaultCustomGroupIds],
+        };
+      });
+    }
   };
 
   if (!open) {
@@ -2011,8 +2166,65 @@ const PatientSelectionOverlay = ({
 
   const handleClose = () => {
     setPackageTargetPatientId(null);
+    setResultPhase(null);
     setView('select');
     onClose();
+  };
+
+  const fetchCustomGroupTests = async (cardIds) => {
+    const uniqueIds = Array.from(new Set((Array.isArray(cardIds) ? cardIds : []).filter(Boolean)));
+    const cardsToFetch = customGroupCards.filter((card) => (
+      uniqueIds.includes(card.id)
+      && card.groupId
+      && !card.testsLoaded
+      && !customTestLoadingById[card.id]
+    ));
+
+    if (cardsToFetch.length === 0) {
+      return;
+    }
+
+    setCustomTestLoadingById((prev) => {
+      const next = { ...prev };
+      cardsToFetch.forEach((card) => {
+        next[card.id] = true;
+      });
+      return next;
+    });
+
+    const results = await Promise.all(cardsToFetch.map(async (card) => {
+      try {
+        const rows = await listDiagnosticTestGroupTests(card.groupId);
+        const tests = (Array.isArray(rows) ? rows : []).map((test) => (
+          typeof test === 'string' || typeof test === 'number'
+            ? String(test).trim()
+            : String(test?.test_name || test?.parameter_name || test?.name || test?.title || '').trim()
+        )).filter(Boolean);
+        return { id: card.id, tests };
+      } catch {
+        return { id: card.id, tests: [] };
+      }
+    }));
+
+    setCustomGroupCards((prev) => prev.map((card) => {
+      const result = results.find((entry) => entry.id === card.id);
+      if (!result) {
+        return card;
+      }
+      return {
+        ...card,
+        tests: result.tests.length > 0 ? result.tests : card.tests,
+        testsLoaded: true,
+      };
+    }));
+
+    setCustomTestLoadingById((prev) => {
+      const next = { ...prev };
+      cardsToFetch.forEach((card) => {
+        delete next[card.id];
+      });
+      return next;
+    });
   };
 
   const openPackageSelector = (returnView, nameHint, patientId = null) => {
@@ -2021,6 +2233,13 @@ const PatientSelectionOverlay = ({
     setPackageViewReturn(returnView);
     setPackageTargetName(nameHint || 'User');
     setPackageTargetPatientId(patientId);
+    if (customFlow) {
+      const currentIds = Array.isArray(selectedGroupIdsByPatientId[patientId])
+        ? selectedGroupIdsByPatientId[patientId]
+        : defaultCustomGroupIds;
+      setCustomSelectedIds(new Set(currentIds));
+      void fetchCustomGroupTests(currentIds);
+    }
     setView('package');
   };
 
@@ -2038,7 +2257,135 @@ const PatientSelectionOverlay = ({
     setView(packageViewReturn);
   };
 
+  const handleConfirmCustomTests = () => {
+    const nextIds = customGroupCards
+      .filter((item) => customSelectedIds.has(item.id) && item.groupId)
+      .map((item) => item.id);
+
+    if (nextIds.length === 0) {
+      return;
+    }
+
+    const targetId = packageTargetPatientId || PENDING_ADD_PATIENT_ID;
+    setSelectedGroupIdsByPatientId((prev) => ({
+      ...prev,
+      [targetId]: nextIds,
+    }));
+    if (!packageTargetPatientId) {
+      setDefaultCustomGroupIds(nextIds);
+    }
+    setPackageTargetPatientId(null);
+    setView(packageViewReturn);
+  };
+
+  const persistCustomPackagesForSelection = async () => {
+    const uniqueSets = new Map();
+
+    selectedPatients.forEach((patient) => {
+      const groups = getCustomGroupsForPatient(patient.id);
+      const numericIds = groups.map((item) => item.groupId).filter(Boolean);
+      const key = toGroupSetKey(numericIds);
+      if (!key) {
+        throw new Error(`Select tests for ${patient.name || 'this patient'} before continuing.`);
+      }
+      if (!uniqueSets.has(key)) {
+        uniqueSets.set(key, {
+          groupIds: numericIds,
+          groups,
+          patientIds: [patient.id],
+          firstPatient: patient,
+        });
+        return;
+      }
+      uniqueSets.get(key).patientIds.push(patient.id);
+    });
+
+    const existingPackages = await listDiagnosticPackages({ type: 'custom_package' });
+    const existingWithGroups = await Promise.all((Array.isArray(existingPackages) ? existingPackages : []).map(async (pkg) => {
+      const packageId = Number(pkg?.diagnostic_package_id || pkg?.id || 0);
+      if (!packageId) {
+        return null;
+      }
+      try {
+        const tests = await getDiagnosticPackageTests(packageId);
+        return {
+          pkg,
+          packageId,
+          key: toGroupSetKey(extractAssignedGroupIds(tests)),
+          assignedIds: extractAssignedGroupIds(tests),
+        };
+      } catch {
+        return {
+          pkg,
+          packageId,
+          key: '',
+          assignedIds: [],
+        };
+      }
+    }));
+
+    const nextCards = [];
+    const nextPatientPackageMap = { ...selectedPackageByPatientId };
+
+    await Promise.all(Array.from(uniqueSets.entries()).map(async ([key, entry]) => {
+      let matched = existingWithGroups.find((item) => item && item.key === key);
+      const current = entry.groups.reduce((sum, item) => sum + Number(item.salePrice || 0), 0);
+      const old = entry.groups.reduce((sum, item) => sum + Number(item.oldPrice || item.salePrice || 0), 0);
+      const shared = entry.patientIds.length > 1;
+      const packageName = `${getPossessiveLabel(shared
+        ? ([profileData?.first_name, profileData?.last_name].filter(Boolean).join(' ') || 'User')
+        : entry.firstPatient?.name)} Custom Package`;
+
+      if (matched) {
+        const missing = entry.groupIds.filter((id) => !matched.assignedIds.includes(id));
+        const extra = matched.assignedIds.filter((id) => !entry.groupIds.includes(id));
+        if (missing.length > 0) {
+          await assignGroupsToPackage(matched.packageId, missing);
+        }
+        await Promise.all(extra.map((groupId) => removeGroupFromPackage(matched.packageId, groupId)));
+      } else {
+        const created = await createDiagnosticPackage({
+          package_name: packageName,
+          custom: true,
+          price: current,
+          original_price: old,
+          diagnostic_provider: 'healthians',
+        });
+        const packageId = Number(created?.diagnostic_package_id || created?.id || 0);
+        if (!packageId) {
+          throw new Error('Could not create a custom package. Please try again.');
+        }
+        await assignGroupsToPackage(packageId, entry.groupIds);
+        matched = {
+          pkg: created,
+          packageId,
+          key,
+          assignedIds: entry.groupIds,
+        };
+      }
+
+      const card = mapDiagnosticPackageToOverlayCard({
+        ...matched.pkg,
+        diagnostic_package_id: matched.packageId,
+        package_name: matched.pkg?.package_name || packageName,
+        price: current,
+        original_price: old,
+      });
+      nextCards.push(card);
+      entry.patientIds.forEach((patientId) => {
+        nextPatientPackageMap[patientId] = normalizePackageId(card.id);
+      });
+    }));
+
+    setCustomPackageCards(nextCards);
+    setSelectedPackageByPatientId(nextPatientPackageMap);
+  };
+
   const handleToggleCustomExpanded = (id) => {
+    const isOpening = !customExpandedIds.has(id);
+    if (isOpening) {
+      void fetchCustomGroupTests([id]);
+    }
     setCustomExpandedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -2239,7 +2586,7 @@ const PatientSelectionOverlay = ({
     if (!BACKEND_ENABLED) {
       const fallbackSlots = SCHEDULE_FALLBACK_TIME_SLOTS.flat().map((displayLabel) => ({
         displayLabel,
-        slot_time: '',
+        slot_time: formatBloodCollectionTimeSlot(displayLabel) || displayLabel,
         end_time: '',
         stm_id: displayLabel,
       }));
@@ -2308,7 +2655,15 @@ const PatientSelectionOverlay = ({
         bloodCollectionTimeSlot,
         addressData,
       });
-      await lockSlots(lockPayload);
+      const lockResponse = await lockSlots(lockPayload);
+      const lockMembers = lockResponse?.data?.members || lockResponse?.members || [];
+      const failedLock = lockMembers.find((member) => {
+        const status = String(member?.status || '').toLowerCase();
+        return status && status !== 'success';
+      });
+      if (failedLock) {
+        throw new Error(failedLock.message || 'Could not lock the selected slot. Please try again.');
+      }
       setView('details');
     } catch (err) {
       setScheduleLockError(err?.message || 'Could not lock the selected slot. Please try again.');
@@ -2435,6 +2790,10 @@ const PatientSelectionOverlay = ({
       const pendingPackageId = normalizePackageId(
         selectedPackageByPatientId[PENDING_ADD_PATIENT_ID],
       ) || selectedPackageId;
+      const pendingGroupIds = Array.isArray(selectedGroupIdsByPatientId[PENDING_ADD_PATIENT_ID])
+        && selectedGroupIdsByPatientId[PENDING_ADD_PATIENT_ID].length > 0
+        ? selectedGroupIdsByPatientId[PENDING_ADD_PATIENT_ID]
+        : defaultCustomGroupIds;
 
       if (createdPatient) {
         setSelectedIds((prev) => {
@@ -2449,12 +2808,27 @@ const PatientSelectionOverlay = ({
           next[createdPatient.id] = pendingPackageId;
           return next;
         });
+        if (customFlow) {
+          setSelectedGroupIdsByPatientId((prev) => {
+            const next = { ...prev };
+            delete next[PENDING_ADD_PATIENT_ID];
+            next[createdPatient.id] = pendingGroupIds;
+            return next;
+          });
+        }
       } else {
         setSelectedPackageByPatientId((prev) => {
           const next = { ...prev };
           delete next[PENDING_ADD_PATIENT_ID];
           return next;
         });
+        if (customFlow) {
+          setSelectedGroupIdsByPatientId((prev) => {
+            const next = { ...prev };
+            delete next[PENDING_ADD_PATIENT_ID];
+            return next;
+          });
+        }
       }
 
       setFormData(DEFAULT_FORM_DATA);
@@ -2482,10 +2856,10 @@ const PatientSelectionOverlay = ({
         </svg>
       </button>
 
-      <div className={`patient-select-overlay__sheet${view === 'add' ? ' is-add' : ''}${view === 'package' ? ' is-package' : ''}${view === 'package-details' ? ' is-package-details' : ''}${view === 'address' ? ' is-address' : ''}${view === 'schedule' ? ' is-schedule' : ''}${view === 'details' ? ' is-details' : ''}${view === 'payment' ? ' is-payment' : ''}${view === 'confirmed' ? ' is-confirmed' : ''}${view === 'package' && customFlow ? ' is-custom-package' : ''}`}>
+      <div className={`patient-select-overlay__sheet${view === 'add' ? ' is-add' : ''}${view === 'package' ? ' is-package' : ''}${view === 'package-details' ? ' is-package-details' : ''}${view === 'address' ? ' is-address' : ''}${view === 'schedule' ? ' is-schedule' : ''}${view === 'details' ? ' is-details' : ''}${view === 'payment' ? ' is-payment' : ''}${view === 'confirmed' ? ' is-confirmed' : ''}${view === 'confirmed' && (resultPhase === 'failure' || (customFlow && resultPhase === 'success')) ? ' is-result-screen' : ''}${view === 'package' && customFlow ? ' is-custom-package' : ''}`}>
         {view === 'select' ? (
           <>
-            <h3 className="patient-select-overlay__title">Select members</h3>
+            <h3 className="patient-select-overlay__title">{customFlow ? 'Select patients' : 'Select members'}</h3>
 
             {addMemberSuccess ? (
               <p className="patient-select-overlay__success" role="status">
@@ -2526,8 +2900,12 @@ const PatientSelectionOverlay = ({
                     {selected ? (
                       <div className="patient-select-overlay__selected-package">
                         <div className="patient-select-overlay__selected-package-left">
-                          <SelectedRowPackageIcon />
-                          <span>{customFlow ? customPackageDisplayName : getPackageForPatient(patient.id).name}</span>
+                          {customFlow ? null : <SelectedRowPackageIcon />}
+                          <span>
+                            {customFlow
+                              ? (formatCustomGroupNames(getCustomGroupsForPatient(patient.id)) || 'Add tests')
+                              : getPackageForPatient(patient.id).name}
+                          </span>
                         </div>
                         <button
                           type="button"
@@ -2557,11 +2935,23 @@ const PatientSelectionOverlay = ({
                   ...prev,
                   [PENDING_ADD_PATIENT_ID]: normalizePackageId(selectedPackageId),
                 }));
+                if (customFlow) {
+                  setSelectedGroupIdsByPatientId((prev) => ({
+                    ...prev,
+                    [PENDING_ADD_PATIENT_ID]: Array.isArray(prev[PENDING_ADD_PATIENT_ID]) && prev[PENDING_ADD_PATIENT_ID].length > 0
+                      ? prev[PENDING_ADD_PATIENT_ID]
+                      : [...defaultCustomGroupIds],
+                  }));
+                }
                 setView('add');
               }}
             >
-              + Add new member
+              {customFlow ? '+ Add new patient' : '+ Add new member'}
             </button>
+
+            {customPersistError ? (
+              <p className="patient-select-overlay__persist-error" role="alert">{customPersistError}</p>
+            ) : null}
 
             <div className="patient-select-overlay__footer">
               <div className="patient-select-overlay__footer-left">
@@ -2577,20 +2967,33 @@ const PatientSelectionOverlay = ({
               <button
                 type="button"
                 className={`patient-select-overlay__continue${canContinue ? ' is-active' : ''}`}
-                disabled={!canContinue}
-                onClick={() => {
-                  if (canContinue) {
-                    if (selectViewReturn === 'details') {
-                      setSelectViewReturn(null);
-                      setView('details');
+                disabled={!canContinue || customPersisting}
+                onClick={async () => {
+                  if (!canContinue || customPersisting) {
+                    return;
+                  }
+                  if (customFlow && BACKEND_ENABLED) {
+                    setCustomPersistError('');
+                    setCustomPersisting(true);
+                    try {
+                      await persistCustomPackagesForSelection();
+                    } catch (error) {
+                      setCustomPersistError(error?.message || 'Could not save custom tests. Please try again.');
+                      setCustomPersisting(false);
                       return;
                     }
-                    setAddressViewReturn('select');
-                    setView('address');
+                    setCustomPersisting(false);
                   }
+                  if (selectViewReturn === 'details') {
+                    setSelectViewReturn(null);
+                    setView('details');
+                    return;
+                  }
+                  setAddressViewReturn('select');
+                  setView('address');
                 }}
               >
-                Continue
+                {customPersisting ? 'Please wait…' : 'Continue'}
               </button>
             </div>
           </>
@@ -2609,7 +3012,7 @@ const PatientSelectionOverlay = ({
               >
                 <BackIcon />
               </button>
-              <h3 className="patient-select-overlay__title">Add a new member</h3>
+              <h3 className="patient-select-overlay__title">{customFlow ? 'Add a new patient' : 'Add a new member'}</h3>
             </div>
 
             <div className="patient-add__body">
@@ -2629,31 +3032,51 @@ const PatientSelectionOverlay = ({
               {renderInputField('email', 'Email')}
               {renderInputField('city', 'City')}
 
-              <div className="patient-add__package-row">
-                <div className="patient-add__package-left">
-                  <PackagePulseIcon />
-                  <div>
-                    <p className="patient-add__package-title">
-                      {customFlow
-                        ? customPackageDisplayName
-                        : getPackageForPatient(PENDING_ADD_PATIENT_ID).name}
-                    </p>
-                    <p className="patient-add__package-subtitle">Current Package</p>
+              {customFlow ? (
+                <div className="patient-add__tests-block">
+                  <p className="patient-add__tests-label">Tests selected</p>
+                  <div className="patient-add__tests-chips">
+                    {getCustomGroupsForPatient(PENDING_ADD_PATIENT_ID).map((group) => (
+                      <span className="patient-add__tests-chip" key={group.id}>{group.title.split(' ')[0]}</span>
+                    ))}
+                    <button
+                      type="button"
+                      className="patient-add__tests-add"
+                      onClick={() => openPackageSelector(
+                        'add',
+                        formData.firstName || 'User',
+                        PENDING_ADD_PATIENT_ID,
+                      )}
+                    >
+                      + Add
+                    </button>
                   </div>
                 </div>
+              ) : (
+                <div className="patient-add__package-row">
+                  <div className="patient-add__package-left">
+                    <PackagePulseIcon />
+                    <div>
+                      <p className="patient-add__package-title">
+                        {getPackageForPatient(PENDING_ADD_PATIENT_ID).name}
+                      </p>
+                      <p className="patient-add__package-subtitle">Current Package</p>
+                    </div>
+                  </div>
 
-                <button
-                  type="button"
-                  className={`patient-add__change-btn${customFlow ? ' is-custom' : ''}`}
-                  onClick={() => openPackageSelector(
-                    'add',
-                    formData.firstName || 'User',
-                    PENDING_ADD_PATIENT_ID,
-                  )}
-                >
-                  {customFlow ? 'Add tests' : 'Change'}
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    className="patient-add__change-btn"
+                    onClick={() => openPackageSelector(
+                      'add',
+                      formData.firstName || 'User',
+                      PENDING_ADD_PATIENT_ID,
+                    )}
+                  >
+                    Change
+                  </button>
+                </div>
+              )}
 
               {addSubmitError ? (
                 <p className="patient-add__submit-error" role="alert">{addSubmitError}</p>
@@ -2754,10 +3177,16 @@ const PatientSelectionOverlay = ({
                           <>
                             <div className="patient-custom-tests__divider" />
                             <div className="patient-custom-tests__tests-grid">
+                              {customTestLoadingById[item.id] ? (
+                                <span className="patient-custom-tests__test-item">Loading tests...</span>
+                              ) : null}
+                              {!customTestLoadingById[item.id] && item.tests.length === 0 ? (
+                                <span className="patient-custom-tests__test-item">No tests available</span>
+                              ) : null}
                               {item.tests.map((test) => (
                                 <span key={`${item.id}-${test}`} className="patient-custom-tests__test-item">
                                   <span className="patient-custom-tests__dot" aria-hidden="true" />
-                                  {test}
+                                  <span className="patient-custom-tests__test-label">{test}</span>
                                 </span>
                               ))}
                             </div>
@@ -2773,8 +3202,13 @@ const PatientSelectionOverlay = ({
                     <span>SELECTED TESTS</span>
                     <p>{customSelectedNames || 'None'}</p>
                   </div>
-                  <button type="button" className="patient-package__confirm-btn patient-package__confirm-btn--compact" onClick={() => setView(packageViewReturn)}>
-                    Add All
+                  <button
+                    type="button"
+                    className="patient-package__confirm-btn patient-package__confirm-btn--compact"
+                    onClick={handleConfirmCustomTests}
+                    disabled={customSelectedCards.length === 0}
+                  >
+                    Add
                   </button>
                 </div>
               </div>
@@ -3108,12 +3542,16 @@ const PatientSelectionOverlay = ({
                     <div className="patient-confirm__patient-price-row">
                       <div className="patient-confirm__patient-package">
                         <SelectedRowPackageIcon />
-                        <span>{customFlow ? customPackageDisplayName : getPackageForPatient(patient.id).name}</span>
+                        <span>
+                          {customFlow
+                            ? (formatCustomGroupNames(getCustomGroupsForPatient(patient.id)) || customPackageDisplayName)
+                            : getPackageForPatient(patient.id).name}
+                        </span>
                       </div>
 
                       <div className="patient-confirm__price-group">
-                        <span className="patient-confirm__price-old">{formatPrice(customFlow ? customPackagePrice.old : getPackageForPatient(patient.id).oldPrice)}/-</span>
-                        <span className="patient-confirm__price-now">{formatPrice(customFlow ? customPackagePrice.current : getPackageForPatient(patient.id).currentPrice)}/-</span>
+                        <span className="patient-confirm__price-old">{formatPrice(customFlow ? getCustomPriceForPatient(patient.id).old : getPackageForPatient(patient.id).oldPrice)}/-</span>
+                        <span className="patient-confirm__price-now">{formatPrice(customFlow ? getCustomPriceForPatient(patient.id).current : getPackageForPatient(patient.id).currentPrice)}/-</span>
                       </div>
                     </div>
                   </div>
@@ -3289,6 +3727,74 @@ const PatientSelectionOverlay = ({
               </button>
             </div>
           </>
+        ) : resultPhase === 'failure' || (customFlow && resultPhase === 'success') ? (
+          <div
+            key={resultPhase}
+            className={`patient-result${resultPhase === 'failure' ? ' is-failed' : ''}`}
+          >
+            <div className="patient-result__glow" aria-hidden="true" />
+            <div className="patient-result__halo" aria-hidden="true">
+              <span className="patient-result__ring patient-result__ring--lg" />
+              <span className="patient-result__ring patient-result__ring--md" />
+              <span className="patient-result__ring patient-result__ring--sm" />
+              <div className="patient-result__orb">
+                {resultPhase === 'failure' ? (
+                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+                    <path d="M8 8L24 24M24 8L8 24" stroke="white" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <svg width="36" height="28" viewBox="0 0 36 28" fill="none" aria-hidden="true">
+                    <path d="M33 3L13 23L3 13" stroke="#163E06" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </div>
+            </div>
+
+            <h3 className="patient-result__title">
+              {resultPhase === 'failure' ? 'Payment Failed' : 'Payment Successful!'}
+            </h3>
+            <p className="patient-result__copy">
+              {resultPhase === 'failure'
+                ? "Oops! Your payment couldn't go through."
+                : 'Your transaction has been processed securely.'}
+            </p>
+
+            {resultPhase === 'success' ? (
+              <div className="patient-result__card">
+                <div className="patient-result__card-head">
+                  <span>Transaction Details</span>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M8 2.5V11" stroke="#9A9A9A" strokeWidth="1.33" strokeLinecap="round" />
+                    <path d="M5 8.5L8 11.5L11 8.5" stroke="#9A9A9A" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M3 13.5H13" stroke="#9A9A9A" strokeWidth="1.33" strokeLinecap="round" />
+                  </svg>
+                </div>
+                <div className="patient-result__card-row">
+                  <span>Transaction ID</span>
+                  <strong>{confirmedBookingId || '—'}</strong>
+                </div>
+                <div className="patient-result__card-row">
+                  <span>Amount</span>
+                  <strong>{`₹${Math.round(Number(paymentBreakdown.totalNew || 0)).toLocaleString('en-IN')}/-`}</strong>
+                </div>
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              className="patient-result__cta"
+              onClick={() => {
+                if (resultPhase === 'failure') {
+                  setResultPhase(null);
+                  setView('payment');
+                  return;
+                }
+                setResultPhase(null);
+              }}
+            >
+              {resultPhase === 'failure' ? 'Retry Payment' : 'Continue'}
+            </button>
+          </div>
         ) : (
           <>
             <div className="patient-final">
@@ -3306,6 +3812,7 @@ const PatientSelectionOverlay = ({
                 </p>
               ) : null}
 
+              <>
               <div className="patient-final__booking-id">
                 <span>{paymentOutcome === 'success' ? 'Booking ID' : 'Reference ID'}</span>
                 <i>|</i>
@@ -3329,7 +3836,11 @@ const PatientSelectionOverlay = ({
 
                       <div className="patient-final__patient-package">
                         <span>Package</span>
-                        <p>{customFlow ? customPackageDisplayName : getPackageForPatient(patient.id).name}</p>
+                        <p>
+                          {customFlow
+                            ? (formatCustomGroupNames(getCustomGroupsForPatient(patient.id)) || customPackageDisplayName)
+                            : getPackageForPatient(patient.id).name}
+                        </p>
                       </div>
                     </div>
 
@@ -3379,6 +3890,8 @@ const PatientSelectionOverlay = ({
                   </div>
                 </div>
               </div>
+              </>
+              )}
             </div>
           </>
         )}

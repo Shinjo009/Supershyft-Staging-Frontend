@@ -86,6 +86,13 @@
   min-height: 50vh;
 }
 
+.patient-select-overlay__sheet.is-result-screen {
+  min-height: 92vh;
+  padding-top: 48px;
+  padding-bottom: 28px;
+  justify-content: flex-start;
+}
+
 .patient-select-overlay__sheet.is-address {
   min-height: 10vh;
 }
@@ -241,6 +248,16 @@
   font-style: normal;
   font-weight: 600;
   line-height: normal;
+  white-space: normal;
+}
+
+.patient-select-overlay__persist-error {
+  width: 100%;
+  margin: 12px 0 0;
+  color: #ffb4b4;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .patient-select-overlay__selected-package-change {
@@ -866,6 +883,51 @@
   border: 1px solid #9a9a9a;
 }
 
+.patient-add__tests-block {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.patient-add__tests-label {
+  margin: 0;
+  color: #9a9a9a;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.patient-add__tests-chips {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.patient-add__tests-chip,
+.patient-add__tests-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.patient-add__tests-add {
+  background: #063533;
+  border-color: rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+}
+
 .patient-add__package-row {
   width: 100%;
   display: flex;
@@ -1430,13 +1492,16 @@
 
 .patient-custom-tests__tests-grid {
   width: 100%;
-  display: inline-grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   row-gap: 12px;
   column-gap: 12px;
 }
 
 .patient-custom-tests__test-item {
+  flex: 1 1 calc((100% - 24px) / 3);
+  min-width: max-content;
+  max-width: 100%;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -1446,6 +1511,11 @@
   font-style: normal;
   font-weight: 500;
   line-height: normal;
+  white-space: nowrap;
+}
+
+.patient-custom-tests__test-label {
+  white-space: nowrap;
 }
 
 .patient-custom-tests__dot {
@@ -1939,15 +2009,18 @@
 .patient-confirm__patient-price-row {
   width: 100%;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 12px;
   margin-top: 2px;
 }
 
 .patient-confirm__patient-package {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
+  flex: 1;
+  min-width: 0;
 }
 
 .patient-confirm__patient-package span {
@@ -1956,13 +2029,16 @@
   font-size: 12px;
   font-style: normal;
   font-weight: 600;
-  line-height: normal;
+  line-height: 1.35;
 }
 
 .patient-confirm__price-group {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
+  justify-content: flex-end;
   gap: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .patient-confirm__price-old {
@@ -2098,6 +2174,236 @@
   letter-spacing: 0.28px;
 }
 
+.patient-result {
+  width: 100%;
+  min-height: 72vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.patient-result__glow {
+  position: absolute;
+  inset: -40px -20px auto;
+  height: 220px;
+  background:
+    radial-gradient(circle at 80% 0%, rgba(204, 32, 59, 0.18) 0%, transparent 55%),
+    radial-gradient(circle at 20% 20%, rgba(6, 53, 51, 0.35) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.patient-result.is-failed .patient-result__glow {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(204, 32, 59, 0.28) 0%, transparent 58%),
+    radial-gradient(circle at 20% 30%, rgba(6, 53, 51, 0.2) 0%, transparent 60%);
+}
+
+.patient-result__halo {
+  position: relative;
+  width: 256px;
+  height: 256px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 24px;
+}
+
+.patient-result__ring {
+  position: absolute;
+  border-radius: 999px;
+  transform: scale(0);
+  animation: patient-result-outward-loop 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.patient-result__ring--sm {
+  width: 128px;
+  height: 128px;
+  background: #90df9e;
+  opacity: 0.2;
+  animation-delay: 40ms;
+}
+
+.patient-result__ring--md {
+  width: 192px;
+  height: 192px;
+  background: #90df9e;
+  opacity: 0.1;
+  animation-delay: 140ms;
+}
+
+.patient-result__ring--lg {
+  width: 256px;
+  height: 256px;
+  background: #90df9e;
+  opacity: 0.05;
+  animation-delay: 240ms;
+}
+
+.patient-result.is-failed .patient-result__ring--sm,
+.patient-result.is-failed .patient-result__ring--md,
+.patient-result.is-failed .patient-result__ring--lg {
+  background: #cc203b;
+}
+
+.patient-result__orb {
+  width: 96px;
+  height: 96px;
+  border-radius: 999px;
+  background: #90df9e;
+  box-shadow: 0 0 40px rgba(163, 255, 120, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: scale(0);
+  animation: patient-result-outward 520ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  z-index: 1;
+}
+
+.patient-result.is-failed .patient-result__orb {
+  background: #cc203b;
+  box-shadow: 0 0 40px rgba(233, 93, 92, 0.5);
+}
+
+.patient-result__title {
+  margin: 0;
+  color: #e5e2e1;
+  text-align: center;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 27px;
+  animation: patient-result-fade 420ms ease-out 320ms both;
+}
+
+.patient-result__copy {
+  margin: 13px 0 0;
+  padding: 0 16px;
+  color: #bfcab5;
+  text-align: center;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  animation: patient-result-fade 420ms ease-out 400ms both;
+}
+
+.patient-result__card {
+  width: 100%;
+  max-width: 326px;
+  margin-top: 48px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  outline: 1px solid rgba(255, 255, 255, 0.1);
+  outline-offset: -1px;
+  box-sizing: border-box;
+  animation: patient-result-fade 420ms ease-out 480ms both;
+}
+
+.patient-result__card-head,
+.patient-result__card-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.patient-result__card-head span {
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.patient-result__card-row {
+  margin-top: 0;
+}
+
+.patient-result__card-row + .patient-result__card-row {
+  margin-top: 12px;
+}
+
+.patient-result__card-row span {
+  color: #9a9a9a;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.patient-result__card-row strong {
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.patient-result__card-row:last-child strong {
+  font-weight: 700;
+}
+
+.patient-result__cta {
+  margin-top: auto;
+  width: 100%;
+  max-width: 320px;
+  height: 40px;
+  padding: 10px 24px;
+  border: 1px solid #969696;
+  border-radius: 36px;
+  background: linear-gradient(90deg, #296359 0%, #41ab99 100%);
+  box-shadow: 0 12px 20px rgba(255, 255, 255, 0.15);
+  color: #fff;
+  text-align: center;
+  font-family: Sora, 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.28px;
+  cursor: pointer;
+}
+
+@keyframes patient-result-outward {
+  0% {
+    transform: scale(0);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes patient-result-outward-loop {
+  0% {
+    transform: scale(0.12);
+    opacity: 0;
+  }
+  22% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes patient-result-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .patient-final {
   width: 100%;
   margin-top: 8px;
@@ -2105,6 +2411,14 @@
   flex-direction: column;
   align-items: stretch;
   padding-bottom: 28px;
+}
+
+.patient-final.is-intro {
+  flex: 1;
+  min-height: 52vh;
+  justify-content: center;
+  align-items: center;
+  padding-bottom: 0;
 }
 
 .patient-final__status-icon {
@@ -2118,11 +2432,85 @@
   border: 1px solid #90df9e;
   background: rgba(0, 0, 0, 0.2);
   box-shadow: 0 1px 10px 0 #90df9e;
+  animation: patient-final-success-pop 560ms ease-out;
+}
+
+.patient-final__status-icon.is-intro {
+  width: 88px;
+  height: 88px;
+  position: relative;
+  animation: patient-final-success-pop 700ms ease-out;
+}
+
+.patient-final__status-icon.is-intro::before,
+.patient-final__status-icon.is-intro::after {
+  content: '';
+  position: absolute;
+  inset: -18px;
+  border-radius: 999px;
+  border: 1px solid rgba(144, 223, 158, 0.28);
+  animation: patient-final-success-ring 1400ms ease-out infinite;
+}
+
+.patient-final__status-icon.is-intro::after {
+  inset: -36px;
+  animation-delay: 180ms;
+}
+
+.patient-final__status-icon.is-intro svg {
+  width: 36px;
+  height: 26px;
 }
 
 .patient-final__status-icon.is-failed {
+  animation: none;
   border-color: #ef4444;
   box-shadow: 0 1px 10px 0 rgba(239, 68, 68, 0.7);
+}
+
+.patient-final__status-icon.is-intro.is-failed {
+  animation: patient-final-success-pop 700ms ease-out;
+}
+
+.patient-final__status-icon.is-intro.is-failed::before,
+.patient-final__status-icon.is-intro.is-failed::after {
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.patient-final__status-copy {
+  margin: 8px 0 0;
+  color: #ccc;
+  text-align: center;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+@keyframes patient-final-success-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes patient-final-success-ring {
+  0% {
+    transform: scale(0.72);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.15);
+    opacity: 0;
+  }
 }
 
 .patient-final__status-text {
