@@ -31,7 +31,7 @@ import lipidArt from '../../images/Custom Packages/Lipid_custom.svg';
 import ironArt from '../../images/Custom Packages/Iron_custom.svg';
 import diabetesArt from '../../images/Custom Packages/Diabetes_custom.svg';
 import hormonesArt from '../../images/Custom Packages/Hormones_custom.svg';
-import leafArt from '../../images/Custom Packages/Object_custom.png';
+import leafArt from '../../images/Custom Packages/Object_custom.svg';
 
 const normalizeProfileArtKey = (value) => (
   String(value || '')

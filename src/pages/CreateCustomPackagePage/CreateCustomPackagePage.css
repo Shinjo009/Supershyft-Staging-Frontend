@@ -212,42 +212,37 @@
   align-self: stretch;
   width: 100%;
   border-radius: 16px;
-  outline: 1px solid rgba(255, 255, 255, 0.2);
-  outline-offset: -1px;
-  background: linear-gradient(187deg, #001716 0%, rgba(0, 0, 0, 0.25) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(227deg, #001716 34.57%, rgba(0, 0, 0, 0.25) 83.26%);
   box-shadow:
-    0 12px 40px rgba(87, 139, 120, 0.15),
+    0 24px 48px 0 rgba(0, 0, 0, 0.5),
     0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 24px 48px rgba(0, 0, 0, 0.5);
+    0 12px 40px 0 rgba(87, 139, 120, 0.15);
   overflow: hidden;
   box-sizing: border-box;
 }
 
 .create-custom-page__card--status {
   padding: 16px;
-  outline: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 /*
-  Object_custom.png — tall, leaf cluster at bottom-right.
-  1) Shift up by full height so that bottom-right sits on the card’s top-right.
-  2) rotate(-90deg) left once around that corner → cluster stays top-right,
-     foliage extends left along the top of the card.
+  Object_custom.svg is the Figma leaf already rotated into a 207×110
+  top-right cluster. Sit it behind the organ the same way as the CBC card.
 */
 .create-custom-page__card-leaf {
   position: absolute;
-  width: 64px;
-  aspect-ratio: 421 / 790;
+  display: block;
+  width: 50%;
   height: auto;
+  aspect-ratio: 207 / 110;
   right: 0;
-  top: calc(-64px * 790 / 421);
-  transform: rotate(-90deg);
-  transform-origin: bottom right;
+  top: 0;
+  object-fit: contain;
+  object-position: top right;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.7;
-  filter: brightness(0.75);
-  mix-blend-mode: screen;
 }
 
 /* Organ art — 10px further left than before; sized to avoid card clipping. */
