@@ -13,9 +13,94 @@ import thyroidArt from '../../images/Custom Packages/Thyroid_custom.svg';
 import allergyArt from '../../images/Custom Packages/AllergyScreening_custom.svg';
 import vitaminsArt from '../../images/Custom Packages/Vitamins_custom.svg';
 import cancerArt from '../../images/Custom Packages/CancerScreening_custom.svg';
+import lhArt from '../../images/Custom Packages/lh_custom.svg';
+import fshArt from '../../images/Custom Packages/fsh_custom.svg';
+import prolactinArt from '../../images/Custom Packages/Prolactin_custom.svg';
+import testosteroneArt from '../../images/Custom Packages/testosterone_custom.svg';
+import cortisolArt from '../../images/Custom Packages/Cortisol_custom.svg';
+import insulinArt from '../../images/Custom Packages/Insulin_custom.svg';
+import afpArt from '../../images/Custom Packages/AFP_custom.svg';
+import prostateArt from '../../images/Custom Packages/prostate_custom.svg';
+import colorectalArt from '../../images/Custom Packages/Colorectal_custom.svg';
+import breastArt from '../../images/Custom Packages/Breast_custom.svg';
+import ovariesArt from '../../images/Custom Packages/Ovaries_custom.svg';
+import pancreasArt from '../../images/Custom Packages/Pancreas_custom.svg';
+import lungsArt from '../../images/Custom Packages/Lungs_custom.svg';
+import stomachArt from '../../images/Custom Packages/stomach_custom.svg';
+import lipidArt from '../../images/Custom Packages/Lipid_custom.svg';
+import ironArt from '../../images/Custom Packages/Iron_custom.svg';
+import diabetesArt from '../../images/Custom Packages/Diabetes_custom.svg';
+import hormonesArt from '../../images/Custom Packages/Hormones_custom.svg';
 import leafArt from '../../images/Custom Packages/Object_custom.png';
 
+const normalizeProfileArtKey = (value) => (
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+);
+
+const matchesProfileArtKeyword = (haystack, keyword) => {
+  const needle = normalizeProfileArtKey(keyword);
+  if (!haystack || !needle) {
+    return false;
+  }
+
+  if (needle.includes(' ') || needle.length > 3) {
+    return haystack.includes(needle);
+  }
+
+  return new RegExp(`(?:^| )${needle}(?: |$)`).test(haystack);
+};
+
+// Specific tests/organs first so they do not fall through to a generic profile image.
 const PROFILE_ART_KEYWORDS = [
+  ['luteinizing', lhArt],
+  ['lh', lhArt],
+  ['follicle stimulating', fshArt],
+  ['fsh', fshArt],
+  ['prolactin', prolactinArt],
+  ['testosterone', testosteroneArt],
+  ['cortisol', cortisolArt],
+  ['insulin', insulinArt],
+  ['alpha fetoprotein', afpArt],
+  ['afp', afpArt],
+  ['prostate', prostateArt],
+  ['psa', prostateArt],
+  ['colorectal', colorectalArt],
+  ['colon', colorectalArt],
+  ['cea', colorectalArt],
+  ['breast', breastArt],
+  ['ca 15', breastArt],
+  ['ca15', breastArt],
+  ['ovaries', ovariesArt],
+  ['ovarian', ovariesArt],
+  ['ca 125', ovariesArt],
+  ['ca125', ovariesArt],
+  ['amh', ovariesArt],
+  ['pancreas', pancreasArt],
+  ['pancreatic', pancreasArt],
+  ['ca 19', pancreasArt],
+  ['ca19', pancreasArt],
+  ['lung', lungsArt],
+  ['pulmonary', lungsArt],
+  ['stomach', stomachArt],
+  ['gastric', stomachArt],
+  ['pylori', stomachArt],
+  ['lipid', lipidArt],
+  ['cholesterol', lipidArt],
+  ['triglyceride', lipidArt],
+  ['iron', ironArt],
+  ['ferritin', ironArt],
+  ['tibc', ironArt],
+  ['transferrin', ironArt],
+  ['diabetes', diabetesArt],
+  ['glucose', diabetesArt],
+  ['hba1c', diabetesArt],
+  ['blood sugar', diabetesArt],
+  ['prandial', diabetesArt],
+  ['hormone', hormonesArt],
   ['liver', liverArt],
   ['cbc', cbcArt],
   ['haem', cbcArt],
@@ -26,17 +111,19 @@ const PROFILE_ART_KEYWORDS = [
   ['allerg', allergyArt],
   ['vitamin', vitaminsArt],
   ['cancer', cancerArt],
+  ['tumor', cancerArt],
   ['kidney', kidneyArt],
   ['renal', kidneyArt],
 ];
 
-const getProfileArt = (name, groupKey) => {
-  const key = `${String(name || '')} ${String(groupKey || '')}`.trim().toLowerCase();
+const getProfileArt = (name, groupKey, tags = []) => {
+  const tagText = Array.isArray(tags) ? tags.join(' ') : '';
+  const key = normalizeProfileArtKey(`${String(name || '')} ${String(groupKey || '')} ${tagText}`);
   if (!key) {
     return kidneyArt;
   }
   for (const [keyword, art] of PROFILE_ART_KEYWORDS) {
-    if (key.includes(keyword)) {
+    if (matchesProfileArtKeyword(key, keyword)) {
       return art;
     }
   }
@@ -615,7 +702,7 @@ const CreateCustomPackagePage = ({ onBack }) => {
             const isSelected = selectedIds.has(category.id);
             const isTestsLoading = Boolean(testLoadingById[category.id]);
             const parameterCount = category.parameterCount || category.tests.length;
-            const profileArt = getProfileArt(category.title, category.groupKey);
+            const profileArt = getProfileArt(category.title, category.groupKey, category.tags);
             const discountText = getDiscountText(category);
 
             return (

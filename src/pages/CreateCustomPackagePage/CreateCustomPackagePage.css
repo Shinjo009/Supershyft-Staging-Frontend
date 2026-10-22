@@ -527,7 +527,14 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  padding-right: 2px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.create-custom-page--view-all-open .create-custom-page__selected-list::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .create-custom-page__selected-card {
