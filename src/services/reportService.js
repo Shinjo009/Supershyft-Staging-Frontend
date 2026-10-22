@@ -1099,7 +1099,7 @@ export const clearReportRequestCache = () => {
   inFlightStore.clear();
 };
 
-/** GET /reports/trends — historical values for a blood parameter or disease risk. */
+/** GET /reports/trends — historical values for a disease risk (or a single blood parameter). */
 export const fetchReportTrends = async ({
   bloodParameter = null,
   disease = null,
@@ -1120,4 +1120,9 @@ export const fetchReportTrends = async ({
   }
 
   return authorizedGetCached('/reports/trends', ttlMs, query);
+};
+
+/** GET /reports/trends/blood-parameters — every blood-parameter reading across engagements. */
+export const fetchBloodParameterTrends = async ({ ttlMs = 60000 } = {}) => {
+  return authorizedGetCached('/reports/trends/blood-parameters', ttlMs);
 };

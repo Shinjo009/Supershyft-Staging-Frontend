@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './TrendsChart.css';
-import { fetchReportTrends } from '../../services/reportService';
+import { fetchBloodParameterTrends, fetchReportTrends } from '../../services/reportService';
 import {
   TRENDS_BAND_BACKGROUNDS,
   TRENDS_BAND_HEIGHT,
@@ -11,7 +11,9 @@ import {
   buildTrendsYAxisLabels,
   formatTrendDateLabel,
   getDotColorForMarkerPercent,
+  getTrendPointsForMarker,
   markerPercentToChartY,
+  normalizeBloodParameterTrendsByKey,
   normalizeTrendsPayload,
   resolveTrendsValueDomain,
   valueToMarkerPercent,
@@ -345,6 +347,7 @@ const TrendsChart = ({
   variant = 'blood',
   bloodParameter = null,
   diseaseCode = null,
+  preloadedPoints = null,
   normalMin = null,
   normalMax = null,
   unit: unitProp = '',
@@ -367,7 +370,8 @@ const TrendsChart = ({
     const queryKey = variant === 'disease' ? diseaseCode : bloodParameter;
 
     const loadTrends = async () => {
-      if (!queryKey || (variant === 'blood' && !hasBloodRange)) {
+      const hasPreloadedTrend = Array.isArray(preloadedPoints) && preloadedPoints.length > 1;
+      if (!queryKey || (variant === 'blood' && !hasBloodRange && !hasPreloadedTrend)) {
         if (isActive) {
           setPoints([]);
           setIsLoading(false);
@@ -382,11 +386,36 @@ const TrendsChart = ({
       }
 
       try {
-        const response = await fetchReportTrends(
-          variant === 'disease'
-            ? { disease: queryKey }
-            : { bloodParameter: queryKey },
-        );
+        if (Array.isArray(preloadedPoints) && preloadedPoints.length > 0) {
+          if (isActive) {
+            setPoints(preloadedPoints);
+            setLoadError(false);
+          }
+          return;
+        }
+
+        if (variant === 'blood') {
+          const response = await fetchBloodParameterTrends({ ttlMs: 60000 });
+          if (!isActive) {
+            return;
+          }
+
+          const byKey = normalizeBloodParameterTrendsByKey(response);
+          const nextPoints = getTrendPointsForMarker({
+            parameter_key: queryKey,
+            title: queryKey,
+            marker: queryKey,
+          }, byKey);
+          setPoints(nextPoints);
+          const matched = byKey[String(queryKey || '').trim().toLowerCase()];
+          if (matched?.unit) {
+            setUnit(matched.unit);
+          }
+          setLoadError(false);
+          return;
+        }
+
+        const response = await fetchReportTrends({ disease: queryKey });
 
         if (!isActive) {
           return;
@@ -415,7 +444,7 @@ const TrendsChart = ({
     return () => {
       isActive = false;
     };
-  }, [bloodParameter, diseaseCode, hasBloodRange, normalMax, normalMin, variant]);
+  }, [bloodParameter, diseaseCode, hasBloodRange, normalMax, normalMin, preloadedPoints, variant]);
 
   const summaryText = useMemo(() => {
     if (variant === 'blood' && !hasBloodRange) {
@@ -444,7 +473,12 @@ const TrendsChart = ({
   ), [valueDomain.max, valueDomain.min]);
 
   const queryKey = variant === 'disease' ? diseaseCode : bloodParameter;
-  const canFetchTrends = Boolean(queryKey) && (variant !== 'blood' || hasBloodRange);
+  const canFetchTrends = Boolean(queryKey) && (
+    variant !== 'blood'
+    || hasBloodRange
+    || (Array.isArray(preloadedPoints) && preloadedPoints.length > 1)
+    || points.length > 1
+  );
   const hasTrendData = !isLoading && !loadError && points.length > 1;
 
   if (!canFetchTrends || !hasTrendData) {

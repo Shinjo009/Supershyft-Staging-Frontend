@@ -321,6 +321,265 @@ export const normalizeTrendsPayload = (payload, variant = 'blood') => {
   };
 };
 
+export const slugBloodParameterName = (value) => (
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+);
+
+const extractBloodParameterTrendSnapshots = (payload) => {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (Array.isArray(payload?.data)) {
+    return payload.data;
+  }
+
+  if (Array.isArray(payload?.data?.data)) {
+    return payload.data.data;
+  }
+
+  if (Array.isArray(payload?.results)) {
+    return payload.results;
+  }
+
+  return [];
+};
+
+const pushTrendAlias = (byKey, key, entry) => {
+  const normalizedKey = String(key || '').trim().toLowerCase();
+  if (!normalizedKey || !entry) {
+    return;
+  }
+  byKey[normalizedKey] = entry;
+};
+
+/**
+ * Invert GET /reports/trends/blood-parameters (date → all params)
+ * into a lookup of parameter_key / slugged name → { parameter, unit, points }.
+ */
+export const normalizeBloodParameterTrendsByKey = (payload) => {
+  const byKey = {};
+
+  extractBloodParameterTrendSnapshots(payload).forEach((snapshot) => {
+    const date = String(snapshot?.date || '').trim();
+    const engagementId = snapshot?.engagement_id ?? snapshot?.engagementId ?? null;
+    const rows = Array.isArray(snapshot?.data_points) ? snapshot.data_points : [];
+
+    rows.forEach((item) => {
+      const value = Number(item?.value);
+      if (!date || !Number.isFinite(value)) {
+        return;
+      }
+
+      const parameter = String(item?.parameter_name || item?.parameterName || '').trim();
+      const unit = String(item?.unit || '').trim();
+      const parameterKey = String(item?.parameter_key || item?.parameterKey || '').trim().toLowerCase();
+      const nameKey = slugBloodParameterName(parameter);
+      const point = { date, value, engagementId };
+
+      const existing = (parameterKey && byKey[parameterKey])
+        || (nameKey && byKey[nameKey])
+        || {
+          parameter,
+          unit,
+          points: [],
+        };
+
+      if (!existing.parameter && parameter) {
+        existing.parameter = parameter;
+      }
+      if (!existing.unit && unit) {
+        existing.unit = unit;
+      }
+
+      const alreadyHas = existing.points.some((entry) => (
+        entry.date === date && entry.value === value
+      ));
+      if (!alreadyHas) {
+        existing.points.push(point);
+      }
+
+      if (parameterKey) {
+        pushTrendAlias(byKey, parameterKey, existing);
+      }
+      if (nameKey) {
+        pushTrendAlias(byKey, nameKey, existing);
+      }
+    });
+  });
+
+  Object.values(byKey).forEach((entry) => {
+    entry.points.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  });
+
+  return byKey;
+};
+
+export const flattenBloodParameterTrendPoints = (trendsByKey = {}) => (
+  Object.entries(trendsByKey).reduce((acc, [key, entry]) => {
+    const points = Array.isArray(entry?.points) ? entry.points : (Array.isArray(entry) ? entry : []);
+    if (points.length === 0) {
+      return acc;
+    }
+    acc[key] = points;
+    const canonical = canonicalizeBloodParameterKey(key);
+    if (canonical) {
+      acc[canonical] = points;
+    }
+    return acc;
+  }, {})
+);
+
+const BLOOD_PARAMETER_KEY_ALIAS_GROUPS = [
+  ['glucose_fasting', 'fasting_sugar', 'fasting_blood_sugar', 'fasting_glucose', 'fbs'],
+  ['glycated_haemoglobin', 'glycated_hemoglobin', 'hba1c', 'hb_a1c', 'hemoglobin_a1c'],
+  ['direct_bilirubin', 'bilirubin_direct'],
+  ['bilirubin_indirect', 'indirect_bilirubin'],
+  ['total_bilirubin', 'bilirubin_total'],
+  ['haemoglobin', 'hemoglobin'],
+  ['hdlc', 'hdlc_value', 'hdl_cholesterol', 'hdl'],
+  ['ldlc', 'ldlc_value', 'ldl_cholesterol', 'ldl'],
+  ['wbc', 'wbc_value', 'wbc_count'],
+  ['rbc', 'rbc_count'],
+  ['tsh', 'tsh_value'],
+  ['alt', 'alt_value', 'sgpt'],
+  ['ast', 'ast_value', 'sgot'],
+  ['ggt', 'ggt_value', 'ggtp'],
+  ['bun', 'bun_value'],
+  ['egfr', 'egfr_value'],
+  ['hscrp', 'hscrp_value', 'hs_crp'],
+  ['esr', 'esr_value', 'esr_automated'],
+  ['mpv', 'mpv_value'],
+  ['fsh', 'fsh_value'],
+  ['lh', 'lh_value'],
+];
+
+export const canonicalizeBloodParameterKey = (value) => {
+  const slug = slugBloodParameterName(value);
+  if (!slug) {
+    return '';
+  }
+
+  const stripped = slug.replace(/_value$/, '');
+  for (const group of BLOOD_PARAMETER_KEY_ALIAS_GROUPS) {
+    if (group.includes(slug) || group.includes(stripped)) {
+      return group[0];
+    }
+  }
+
+  return stripped || slug;
+};
+
+export const humanizeBloodParameterName = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return 'Test';
+  }
+
+  if (/\s/.test(raw) && !raw.includes('_')) {
+    return raw.replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+
+  return raw
+    .replace(/_value$/i, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+export const listBloodParameterLookupKeys = (marker = {}) => (
+  [
+    marker.parameter_key,
+    marker.parameterKey,
+    toBloodParameterKey(marker),
+    slugBloodParameterName(marker.title),
+    slugBloodParameterName(marker.marker),
+    slugBloodParameterName(marker.parameter),
+  ]
+    .map((key) => canonicalizeBloodParameterKey(key))
+    .filter(Boolean)
+);
+
+export const getTrendEntryForMarker = (marker = {}, trendsByParameterKey = {}) => {
+  if (!trendsByParameterKey || typeof trendsByParameterKey !== 'object') {
+    return null;
+  }
+
+  const markerKeys = new Set(listBloodParameterLookupKeys(marker));
+  if (markerKeys.size === 0) {
+    return null;
+  }
+
+  for (const [key, entry] of Object.entries(trendsByParameterKey)) {
+    if (!markerKeys.has(canonicalizeBloodParameterKey(key))) {
+      continue;
+    }
+    if (Array.isArray(entry) && entry.length > 0) {
+      return { points: entry };
+    }
+    if (entry && typeof entry === 'object') {
+      return entry;
+    }
+  }
+
+  return null;
+};
+
+export const getTrendPointsForMarker = (marker = {}, trendsByParameterKey = {}) => {
+  const entry = getTrendEntryForMarker(marker, trendsByParameterKey);
+  if (Array.isArray(entry?.points) && entry.points.length > 0) {
+    return entry.points;
+  }
+  if (Array.isArray(entry) && entry.length > 0) {
+    return entry;
+  }
+  return [];
+};
+
+export const mergeBloodMarkerHistorySources = (...sources) => {
+  const merged = [];
+
+  sources.forEach((source) => {
+    (Array.isArray(source) ? source : []).forEach((point) => {
+      const value = Number(point?.value);
+      if (!Number.isFinite(value)) {
+        return;
+      }
+      const date = String(point?.date || '').trim();
+      const alreadyHas = merged.some((entry) => (
+        entry.value === value && (!date || !entry.date || entry.date === date)
+      ));
+      if (!alreadyHas) {
+        merged.push({
+          date,
+          value,
+          engagementId: point?.engagementId ?? point?.engagement_id ?? null,
+        });
+      }
+    });
+  });
+
+  return merged.sort((a, b) => {
+    const aTime = a.date ? new Date(a.date).getTime() : NaN;
+    const bTime = b.date ? new Date(b.date).getTime() : NaN;
+    if (Number.isFinite(aTime) && Number.isFinite(bTime)) {
+      return aTime - bTime;
+    }
+    if (Number.isFinite(aTime)) {
+      return -1;
+    }
+    if (Number.isFinite(bTime)) {
+      return 1;
+    }
+    return 0;
+  });
+};
+
 const deviationFromNormalCenter = (value, normalMin, normalMax) => {
   const center = (normalMin + normalMax) / 2;
   const halfSpan = Math.max((normalMax - normalMin) / 2, 1e-6);

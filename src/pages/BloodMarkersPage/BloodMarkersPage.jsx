@@ -4,13 +4,18 @@ import './BloodMarkersPage.css';
 import { BACKEND_BASE_URL, BACKEND_ENABLED } from '../../config/appConfig';
 import { getAccessToken } from '../../utils/authStorage';
 import { formatApiContentDisplay } from '../../utils/formatApiContentDisplay';
-import { fetchLatestAssessmentReport, fetchReportTrends } from '../../services/reportService';
+import { fetchLatestAssessmentReport, fetchBloodParameterTrends } from '../../services/reportService';
 import { buildBloodParametersGroupsForAssessment } from '../../utils/assessmentBloodMarkerSupplements';
 import TrendsChart from '../../components/TrendsChart';
 import {
   buildBloodMarkerHistoryTimeline,
+  flattenBloodParameterTrendPoints,
   formatBloodMarkerHistoryDate,
-  normalizeTrendsPayload,
+  getTrendPointsForMarker,
+  humanizeBloodParameterName,
+  listBloodParameterLookupKeys,
+  mergeBloodMarkerHistorySources,
+  normalizeBloodParameterTrendsByKey,
   toBloodParameterKey,
 } from '../../utils/trendsChartUtils';
 import {
@@ -249,24 +254,8 @@ const resolveCardHistoryPoints = (card, trendsByParameterKey = {}) => {
   }
 
   const embedded = Array.isArray(card?.historyPoints) ? card.historyPoints : [];
-  const paramKey = toBloodParameterKey(card);
-  const fromTrends = paramKey && Array.isArray(trendsByParameterKey[paramKey])
-    ? trendsByParameterKey[paramKey]
-    : [];
-
-  // Prefer the richer history (trends often has prior readings when the card
-  // only carried the current value). Fall back to a single reading when that
-  // is all either source has.
-  let source = [];
-  if (embedded.length >= 2) {
-    source = embedded;
-  } else if (fromTrends.length >= 2) {
-    source = fromTrends;
-  } else if (fromTrends.length >= 1) {
-    source = fromTrends;
-  } else if (embedded.length >= 1) {
-    source = embedded;
-  }
+  const fromTrends = getTrendPointsForMarker(card, trendsByParameterKey);
+  const source = mergeBloodMarkerHistorySources(embedded, fromTrends);
 
   if (source.length === 0) {
     return [];
@@ -349,12 +338,17 @@ const toOrganName = (groupName) => {
   const byKeyword = [
     ['haematology', 'Haematology'],
     ['hematology', 'Haematology'],
+    ['bilirubin', 'Liver'],
     ['liver', 'Liver'],
     ['kidney', 'Kidney'],
     ['vitamin', 'Vitamins'],
     ['lipid', 'Lipid'],
     ['iron', 'Iron'],
     ['thyroid', 'Thyroid'],
+    ['glucose', 'Diabetes'],
+    ['fasting sugar', 'Diabetes'],
+    ['hba1c', 'Diabetes'],
+    ['glycated', 'Diabetes'],
     ['diabetes', 'Diabetes'],
     ['inflammation', 'Inflammation'],
     ['sleep', 'Sleep'],
@@ -556,7 +550,90 @@ const getRepresentativeTest = (tests, desiredType) => {
   return null;
 };
 
-const buildSectionsFromApi = (payloadOrGroups) => {
+const applyLatestTrendToTest = (test, trendsByKey = {}) => {
+  const fromTrends = getTrendPointsForMarker(test, trendsByKey);
+  const merged = mergeBloodMarkerHistorySources(test.historyPoints, fromTrends);
+  const latest = merged[merged.length - 1];
+  const latestValue = Number.isFinite(Number(latest?.value))
+    ? Number(latest.value)
+    : test.rawValue;
+  const hasValue = Number.isFinite(Number(latestValue));
+  const hasRanges = Number.isFinite(Number(test.normalMin)) && Number.isFinite(Number(test.normalMax));
+  const isClassifiable = hasValue && hasRanges;
+
+  return {
+    ...test,
+    rawValue: hasValue ? Number(latestValue) : test.rawValue,
+    value: hasValue ? formatValue(latestValue) : test.value,
+    historyPoints: buildBloodMarkerHistoryTimeline({
+      historyPoints: merged,
+      currentValue: hasValue ? Number(latestValue) : test.rawValue,
+      maxPoints: 8,
+      minPoints: 1,
+    }),
+    isClassifiable,
+    riskType: isClassifiable
+      ? getRiskTypeFromBounds(Number(latestValue), test.normalMin, test.normalMax)
+      : null,
+  };
+};
+
+const finalizeSectionClassification = (section) => {
+  const tests = Array.isArray(section?.tests) ? section.tests : [];
+  const classifiableTests = tests.filter((test) => test.isClassifiable);
+  const highTests = classifiableTests.filter((test) => test.riskType === 'high');
+  const lowRiskTests = classifiableTests.filter((test) => (
+    test.riskType === 'moderate' || test.riskType === 'increased'
+  ));
+  const optimalTests = classifiableTests.filter((test) => test.riskType === 'low');
+  const noReferenceRangeHiddenCount = tests.filter((test) => !test.isClassifiable).length;
+
+  const initialCategory = getCategoryFromTests(classifiableTests);
+  const primaryMarginalRiskType = getPrimaryMarginalRiskType(classifiableTests);
+  const category = initialCategory === 'Critical' && highTests.length === 0
+    ? 'Marginal'
+    : initialCategory === 'Marginal' && lowRiskTests.length === 0
+      ? 'Optimal'
+      : initialCategory;
+
+  const riskTypes = category === 'Critical'
+    ? ['high', primaryMarginalRiskType, 'low']
+    : category === 'Marginal'
+      ? [primaryMarginalRiskType, 'low']
+      : ['low'];
+
+  const primaryTheme = category === 'Critical'
+    ? 'high'
+    : category === 'Marginal'
+      ? primaryMarginalRiskType
+      : 'low';
+
+  const visibleCount = classifiableTests.length;
+  const totalWithNumericValue = visibleCount + noReferenceRangeHiddenCount;
+  const parametersLabel = totalWithNumericValue > 0
+    ? `${totalWithNumericValue} parameter${totalWithNumericValue === 1 ? '' : 's'}`
+    : '0 parameters';
+
+  return {
+    ...section,
+    tests: classifiableTests,
+    unclassifiedTests: tests.filter((test) => !test.isClassifiable),
+    noReferenceRangeHiddenCount,
+    classifiableTests,
+    highTests,
+    lowRiskTests,
+    optimalTests,
+    category,
+    riskTypes,
+    theme: primaryTheme,
+    primaryMarginalRiskType,
+    marginalTest: getRepresentativeTest(classifiableTests, primaryMarginalRiskType),
+    criticalTest: getRepresentativeTest(classifiableTests, 'high'),
+    parameters: parametersLabel,
+  };
+};
+
+const buildSectionsFromApi = (payloadOrGroups, trendsByKey = {}) => {
   const rawGroups = extractBloodParameterGroupsArray(payloadOrGroups)
     .filter((group) => !classifyReportGroupName(pickBloodParameterGroupName(group)));
 
@@ -587,9 +664,8 @@ const buildSectionsFromApi = (payloadOrGroups) => {
           higher = swap;
         }
         const hasRanges = numericRangesOk && lower <= higher;
-        const isClassifiable = hasValue && hasRanges;
 
-        return {
+        return applyLatestTrendToTest({
           id: `${key}-test-${groupIndex}-${index}`,
           marker: String(n.test_name || 'TEST').toUpperCase(),
           title: String(n.test_name || 'Test'),
@@ -609,8 +685,8 @@ const buildSectionsFromApi = (payloadOrGroups) => {
           rawValue: hasValue ? value : null,
           normalMin: hasRanges ? lower : null,
           normalMax: hasRanges ? higher : null,
-          isClassifiable,
-          riskType: isClassifiable ? getRiskTypeFromBounds(value, lower, higher) : null,
+          isClassifiable: false,
+          riskType: null,
           historyPoints: (() => {
             const embedded = Array.isArray(n.history_points) && n.history_points.length > 0
               ? n.history_points
@@ -624,65 +700,136 @@ const buildSectionsFromApi = (payloadOrGroups) => {
           })(),
           causes: pickApiList(test, ['causes', 'cause', 'possible_causes', 'reason', 'reasons']),
           effects: pickApiList(test, ['effects', 'effect', 'possible_effects', 'impact', 'impacts']),
-        };
-      }).filter((test) => test.rawValue !== null && Number.isFinite(test.rawValue));
+        }, trendsByKey);
+      }).filter((test) => (
+        (test.rawValue !== null && Number.isFinite(test.rawValue))
+        || (Number.isFinite(Number(test.normalMin)) && Number.isFinite(Number(test.normalMax)))
+      ));
 
-      const noReferenceRangeHiddenCount = mappedTests.filter((test) => !test.isClassifiable).length;
-      const visibleTests = mappedTests.filter((test) => test.isClassifiable);
-
-      const classifiableTests = visibleTests;
-      const highTests = visibleTests.filter((test) => test.riskType === 'high');
-      const lowRiskTests = visibleTests.filter((test) => test.riskType === 'moderate' || test.riskType === 'increased');
-      const optimalTests = visibleTests.filter((test) => test.riskType === 'low');
-
-      const initialCategory = getCategoryFromTests(mappedTests);
-      const primaryMarginalRiskType = getPrimaryMarginalRiskType(mappedTests);
-      const marginalTest = getRepresentativeTest(mappedTests, primaryMarginalRiskType);
-      const criticalTest = getRepresentativeTest(mappedTests, 'high');
-
-      const category = initialCategory === 'Critical' && highTests.length === 0
-        ? 'Marginal'
-        : initialCategory === 'Marginal' && lowRiskTests.length === 0
-          ? 'Optimal'
-          : initialCategory;
-
-      const riskTypes = category === 'Critical'
-        ? ['high', primaryMarginalRiskType, 'low']
-        : category === 'Marginal'
-          ? [primaryMarginalRiskType, 'low']
-          : ['low'];
-
-      const primaryTheme = category === 'Critical'
-        ? 'high'
-        : category === 'Marginal'
-          ? primaryMarginalRiskType
-          : 'low';
-
-      const visibleCount = visibleTests.length;
-      const totalWithNumericValue = visibleCount + noReferenceRangeHiddenCount;
-      const parametersLabel = totalWithNumericValue > 0
-        ? `${totalWithNumericValue} parameter${totalWithNumericValue === 1 ? '' : 's'}`
-        : '0 parameters';
-
-      return {
+      return finalizeSectionClassification({
         id: `api-${key}-${groupIndex}`,
         organ,
-        parameters: parametersLabel,
-        theme: primaryTheme,
-        category,
-        riskTypes,
-        tests: visibleTests,
-        noReferenceRangeHiddenCount,
-        classifiableTests,
-        highTests,
-        lowRiskTests,
-        optimalTests,
-        primaryMarginalRiskType,
-        marginalTest,
-        criticalTest,
-      };
+        tests: mappedTests,
+      });
     })
     .filter((section) => section.tests.length > 0 || section.noReferenceRangeHiddenCount > 0)
+    .sort((a, b) => a.organ.localeCompare(b.organ));
+};
+
+const collectSectionTests = (section) => ([
+  ...(section.tests || []),
+  ...(section.unclassifiedTests || []),
+  ...(section.highTests || []),
+  ...(section.lowRiskTests || []),
+  ...(section.optimalTests || []),
+]);
+
+const testMatchesTrend = (test, trendKey, entry) => {
+  const testKeys = new Set(listBloodParameterLookupKeys(test));
+  const trendKeys = listBloodParameterLookupKeys({
+    parameter_key: trendKey,
+    title: entry?.parameter,
+    marker: entry?.parameter,
+  });
+  return trendKeys.some((key) => testKeys.has(key));
+};
+
+const buildPriorPackageTest = (key, entry, index, rangeSource = null) => {
+  const points = Array.isArray(entry?.points) ? entry.points : [];
+  const latest = points[points.length - 1];
+  if (!latest || !Number.isFinite(Number(latest.value))) {
+    return null;
+  }
+
+  const title = humanizeBloodParameterName(entry?.parameter || key);
+  const value = Number(latest.value);
+  const normalMin = Number.isFinite(Number(rangeSource?.normalMin))
+    ? Number(rangeSource.normalMin)
+    : null;
+  const normalMax = Number.isFinite(Number(rangeSource?.normalMax))
+    ? Number(rangeSource.normalMax)
+    : null;
+  const hasRanges = normalMin !== null && normalMax !== null;
+  const isClassifiable = hasRanges;
+
+  return applyLatestTrendToTest({
+    id: rangeSource?.id || `prior-${key}-${index}`,
+    marker: title.toUpperCase(),
+    title,
+    parameter_key: rangeSource?.parameter_key || key,
+    diagnosticTestId: rangeSource?.diagnosticTestId || null,
+    value: formatValue(value),
+    unit: String(rangeSource?.unit || entry?.unit || '').trim(),
+    rawValue: value,
+    normalMin,
+    normalMax,
+    isClassifiable,
+    riskType: isClassifiable ? getRiskTypeFromBounds(value, normalMin, normalMax) : null,
+    fromPriorPackage: !rangeSource,
+    historyPoints: points,
+    causes: rangeSource?.causes || [],
+    effects: rangeSource?.effects || [],
+  }, { [key]: entry });
+};
+
+/** Keep last year's extra markers and put each profile in the latest-value category. */
+const attachPriorPackageMarkers = (sections, trendsByKey = {}) => {
+  const next = (Array.isArray(sections) ? sections : []).map((section) => ({
+    ...section,
+    tests: [...(section.tests || []), ...(section.unclassifiedTests || [])],
+    unclassifiedTests: [],
+  }));
+  const seenIdentity = new Set();
+
+  Object.entries(trendsByKey).forEach(([key, entry], index) => {
+    const points = Array.isArray(entry?.points) ? entry.points : [];
+    if (points.length === 0) {
+      return;
+    }
+
+    const identity = `${humanizeBloodParameterName(entry?.parameter || key).toLowerCase()}|${points.map((point) => `${point.date}:${point.value}`).join('|')}`;
+    if (seenIdentity.has(identity)) {
+      return;
+    }
+    seenIdentity.add(identity);
+
+    const existingMatch = next
+      .flatMap((section) => collectSectionTests(section).map((test) => ({ section, test })))
+      .find(({ test }) => testMatchesTrend(test, key, entry));
+
+    if (existingMatch) {
+      return;
+    }
+
+    const rangeSource = next
+      .flatMap((section) => collectSectionTests(section))
+      .find((test) => testMatchesTrend(test, key, entry) && Number.isFinite(Number(test.normalMin)));
+
+    const test = buildPriorPackageTest(key, entry, index, rangeSource || null);
+    if (!test || !test.isClassifiable) {
+      return;
+    }
+
+    const organ = toOrganName(test.title);
+    const organKey = organ.toLowerCase();
+    let section = next.find((item) => String(item.organ || '').toLowerCase() === organKey);
+
+    if (!section) {
+      section = {
+        id: `prior-${organKey}`,
+        organ,
+        tests: [],
+        unclassifiedTests: [],
+      };
+      next.push(section);
+    }
+
+    section.tests.push(test);
+  });
+
+  return next
+    .map((section) => finalizeSectionClassification(section))
+    .filter((section) => section.tests.length > 0)
     .sort((a, b) => a.organ.localeCompare(b.organ));
 };
 
@@ -862,6 +1009,7 @@ const markerCards = (section) => {
       diagnosticTestId: test.diagnosticTestId,
       riskType,
       allergy: Boolean(test.allergy),
+      fromPriorPackage: Boolean(test.fromPriorPackage),
       normalMin: test.normalMin,
       normalMax: test.normalMax,
       rawValue: test.rawValue,
@@ -1267,7 +1415,7 @@ const getMarkerPercentForValue = (value, normalMin, normalMax) => {
   return 80 + (ratio * 20);
 };
 
-const BloodMarkerDetailView = ({ marker, onBack }) => {
+const BloodMarkerDetailView = ({ marker, onBack, trendsByParameterKey = {} }) => {
   const riskStripRef = useRef(null);
   const indicatorRef = useRef(null);
   const [diagnosticDetail, setDiagnosticDetail] = useState(null);
@@ -1276,6 +1424,10 @@ const BloodMarkerDetailView = ({ marker, onBack }) => {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const descriptionRef = useRef(null);
   const [isDescriptionTruncated, setIsDescriptionTruncated] = useState(false);
+  const preloadedTrendPoints = useMemo(
+    () => getTrendPointsForMarker(marker, trendsByParameterKey),
+    [marker, trendsByParameterKey],
+  );
 
   useEffect(() => {
     let isActive = true;
@@ -1694,6 +1846,7 @@ const BloodMarkerDetailView = ({ marker, onBack }) => {
         className="blood-marker-detail__trends-section"
         variant="blood"
         bloodParameter={toBloodParameterKey(marker)}
+        preloadedPoints={preloadedTrendPoints}
         normalMin={detail.normalMin}
         normalMax={detail.normalMax}
         unit={String(marker?.unit || detail.unit || '').trim()}
@@ -2481,28 +2634,46 @@ const BloodMarkersPage = ({
     let isActive = true;
 
     const loadBloodMarkers = async () => {
-      try {
-        const { assessmentId, response } = await fetchLatestAssessmentReport(
+      const [reportResult, trendsResult] = await Promise.allSettled([
+        fetchLatestAssessmentReport(
           (assessmentId) => `/reports/${assessmentId}/blood-parameters`
-        );
-        if (isActive) {
-          const groups = Number(assessmentId) > 0
-            ? buildBloodParametersGroupsForAssessment(assessmentId, response)
-            : normalizeBloodParametersReportPayload(response);
-          setApiSections(buildSectionsFromApi(groups));
-          const reportMarkers = buildReportScreenMarkers(response, assessmentId);
-          setReportCancerGroups(reportMarkers.cancerCards);
-          setReportAllergySections(reportMarkers.hasAllergy ? reportMarkers.allergySections : null);
-          setHasLoadedReport(true);
-        }
-      } catch (error) {
-        console.error('Failed to load blood marker report:', error);
-        if (isActive) {
-          setApiSections([]);
-          setReportCancerGroups([]);
-          setHasLoadedReport(true);
-        }
+        ),
+        fetchBloodParameterTrends({ ttlMs: 60000 }),
+      ]);
+
+      if (!isActive) {
+        return;
       }
+
+      const trendsByKey = trendsResult.status === 'fulfilled'
+        ? normalizeBloodParameterTrendsByKey(trendsResult.value)
+        : {};
+      setTrendsByParameterKey(flattenBloodParameterTrendPoints(trendsByKey));
+
+      if (trendsResult.status === 'rejected') {
+        console.warn(
+          'Failed to load blood parameter trends:',
+          trendsResult.reason?.message || trendsResult.reason,
+        );
+      }
+
+      if (reportResult.status === 'fulfilled') {
+        const { assessmentId, response } = reportResult.value;
+        const groups = Number(assessmentId) > 0
+          ? buildBloodParametersGroupsForAssessment(assessmentId, response)
+          : normalizeBloodParametersReportPayload(response);
+        setApiSections(attachPriorPackageMarkers(buildSectionsFromApi(groups, trendsByKey), trendsByKey));
+        const reportMarkers = buildReportScreenMarkers(response, assessmentId);
+        setReportCancerGroups(reportMarkers.cancerCards);
+        setReportAllergySections(reportMarkers.hasAllergy ? reportMarkers.allergySections : null);
+        setHasLoadedReport(true);
+        return;
+      }
+
+      console.error('Failed to load blood marker report:', reportResult.reason);
+        setApiSections(attachPriorPackageMarkers(buildSectionsFromApi([], trendsByKey), trendsByKey));
+      setReportCancerGroups([]);
+      setHasLoadedReport(true);
     };
 
     loadBloodMarkers();
@@ -2511,76 +2682,6 @@ const BloodMarkersPage = ({
       isActive = false;
     };
   }, []);
-
-  // When list payload has no embedded history, load GET /reports/trends per parameter.
-  useEffect(() => {
-    if (!hasLoadedReport || apiSections.length === 0) {
-      return undefined;
-    }
-
-    let cancelled = false;
-    const keysNeedingTrends = [];
-    const seen = new Set();
-
-    apiSections.forEach((section) => {
-      (section.tests || []).forEach((test) => {
-        const key = toBloodParameterKey(test);
-        if (!key || seen.has(key)) {
-          return;
-        }
-        const embeddedCount = Array.isArray(test.historyPoints) ? test.historyPoints.length : 0;
-        // Still fetch trends when the card only has a single reading so prior
-        // values can fill in the multi-capsule timeline.
-        if (embeddedCount >= 2) {
-          return;
-        }
-        seen.add(key);
-        keysNeedingTrends.push(key);
-      });
-    });
-
-    if (keysNeedingTrends.length === 0) {
-      return undefined;
-    }
-
-    const loadTrends = async () => {
-      const next = {};
-      const batchSize = 4;
-
-      for (let i = 0; i < keysNeedingTrends.length; i += batchSize) {
-        if (cancelled) {
-          return;
-        }
-        const batch = keysNeedingTrends.slice(i, i + batchSize);
-        const results = await Promise.allSettled(
-          batch.map((bloodParameter) => fetchReportTrends({ bloodParameter, ttlMs: 60000 })),
-        );
-
-        results.forEach((result, index) => {
-          const key = batch[index];
-          if (result.status !== 'fulfilled') {
-            return;
-          }
-          const normalized = normalizeTrendsPayload(result.value, 'blood');
-          if (normalized.points.length >= 1) {
-            next[key] = normalized.points;
-          }
-        });
-
-        if (!cancelled && Object.keys(next).length > 0) {
-          setTrendsByParameterKey((prev) => ({ ...prev, ...next }));
-        }
-      }
-    };
-
-    loadTrends().catch((error) => {
-      console.warn('Failed to load blood marker history trends:', error?.message || error);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [apiSections, hasLoadedReport]);
 
   const sections = useMemo(() => {
     if (activeFilter === 'Allergies') {
@@ -2602,7 +2703,11 @@ const BloodMarkersPage = ({
   if (selectedMarker) {
     return (
       <div className="blood-markers-page">
-        <BloodMarkerDetailView marker={selectedMarker} onBack={() => setSelectedMarker(null)} />
+        <BloodMarkerDetailView
+          marker={selectedMarker}
+          trendsByParameterKey={trendsByParameterKey}
+          onBack={() => setSelectedMarker(null)}
+        />
       </div>
     );
   }
