@@ -220,6 +220,7 @@
     0 12px 40px 0 rgba(87, 139, 120, 0.15);
   overflow: hidden;
   box-sizing: border-box;
+  cursor: pointer;
 }
 
 .create-custom-page__card--status {
@@ -228,9 +229,8 @@
 }
 
 /*
-  Full card box, image fitted inside (contain) and pinned top-right.
-  A 50% box was slicing the left leaf tips at the card center.
-  Height 100% keeps mobile from using the tall embedded-PNG ratio.
+  Landscape leaf is already baked (no EXIF, no runtime rotate).
+  Same size as before: contained in the card, pinned top-right.
 */
 .create-custom-page__card-leaf {
   position: absolute;
@@ -242,6 +242,7 @@
   height: 100%;
   object-fit: contain;
   object-position: top right;
+  image-orientation: none;
   pointer-events: none;
   z-index: 0;
 }
@@ -313,8 +314,9 @@
   flex-wrap: wrap;
   row-gap: 8px;
   column-gap: 8px;
-  align-content: center;
+  align-content: flex-start;
   box-sizing: border-box;
+  padding: 1px 0 2px;
 }
 
 .create-custom-page__test-item {
@@ -324,8 +326,7 @@
   justify-content: center;
   padding: 2px 8px;
   border-radius: 30px;
-  outline: 0.5px solid rgba(144, 223, 158, 0.5);
-  outline-offset: -0.5px;
+  border: 0.5px solid rgba(144, 223, 158, 0.5);
   background: transparent;
   box-sizing: border-box;
   color: #c4c4c4;
@@ -352,7 +353,7 @@
   align-items: flex-start;
   gap: 8px;
   min-width: 0;
-  width: 135px;
+  flex: 1;
 }
 
 .create-custom-page__card-parameters {
@@ -367,8 +368,10 @@
 .create-custom-page__price-row {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
+  min-width: 0;
+  width: 100%;
 }
 
 .create-custom-page__price-now {
@@ -378,6 +381,7 @@
   font-style: normal;
   font-weight: 600;
   line-height: normal;
+  white-space: nowrap;
 }
 
 .create-custom-page__price-old {
@@ -388,6 +392,7 @@
   font-weight: 300;
   line-height: normal;
   text-decoration-line: line-through;
+  white-space: nowrap;
 }
 
 .create-custom-page__price-off {
@@ -397,6 +402,7 @@
   font-style: normal;
   font-weight: 500;
   line-height: normal;
+  white-space: nowrap;
 }
 
 .create-custom-page__add-btn {

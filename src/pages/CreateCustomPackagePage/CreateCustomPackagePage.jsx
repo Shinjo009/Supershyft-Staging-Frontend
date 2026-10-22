@@ -31,7 +31,7 @@ import lipidArt from '../../images/Custom Packages/Lipid_custom.svg';
 import ironArt from '../../images/Custom Packages/Iron_custom.svg';
 import diabetesArt from '../../images/Custom Packages/Diabetes_custom.svg';
 import hormonesArt from '../../images/Custom Packages/Hormones_custom.svg';
-import leafArt from '../../images/Custom Packages/Object_custom.svg';
+import leafArt from '../../images/Custom Packages/Object_custom_card.png';
 
 const normalizeProfileArtKey = (value) => (
   String(value || '')
@@ -709,6 +709,7 @@ const CreateCustomPackagePage = ({ onBack }) => {
               <article
                 key={category.id}
                 className={`create-custom-page__card ${isSelected ? 'is-selected' : ''} ${isExpanded ? 'is-expanded' : ''}`}
+                onClick={() => toggleExpanded(category.id)}
               >
                 <img
                   className="create-custom-page__card-leaf"
@@ -731,7 +732,6 @@ const CreateCustomPackagePage = ({ onBack }) => {
                       className="create-custom-page__expand-btn"
                       aria-label={`Toggle details for ${category.title}`}
                       aria-expanded={isExpanded}
-                      onClick={() => toggleExpanded(category.id)}
                     >
                       {isExpanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
                     </button>
@@ -773,7 +773,10 @@ const CreateCustomPackagePage = ({ onBack }) => {
                       type="button"
                       className={`create-custom-page__add-btn ${isSelected ? 'is-added' : ''}`}
                       aria-pressed={isSelected}
-                      onClick={() => toggleSelected(category.id)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        toggleSelected(category.id);
+                      }}
                     >
                       {isSelected ? (
                         <>
