@@ -228,17 +228,18 @@
 }
 
 /*
-  Object_custom.svg is the Figma leaf already rotated into a 207×110
-  top-right cluster. Sit it behind the organ the same way as the CBC card.
+  Full card box, image fitted inside (contain) and pinned top-right.
+  A 50% box was slicing the left leaf tips at the card center.
+  Height 100% keeps mobile from using the tall embedded-PNG ratio.
 */
 .create-custom-page__card-leaf {
   position: absolute;
   display: block;
-  width: 50%;
-  height: auto;
-  aspect-ratio: 207 / 110;
-  right: 0;
   top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   object-position: top right;
   pointer-events: none;
